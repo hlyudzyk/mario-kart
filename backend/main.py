@@ -10,16 +10,39 @@ app = FastAPI()
 
 latest_detections = []
 
+
 def compute_position(det: dict) -> dict | None:
     cx = (det["xmin"] + det["xmax"]) / 2
     width = det["xmax"] - det["xmin"]
     height = det["ymax"] - det["ymin"]
+
     area = width * height
     if area <= 0:
         return None
-    x = round((cx - 0.5) * 10) / 10
-    z = round(1 / math.sqrt(area) * 10) / 10
-    return {"x": x, "z": z}
+
+    # -------------------------
+    # X in [0, 1]
+    # -------------------------
+    x = cx
+
+    # -------------------------
+    # Y raw (distance proxy)
+    # -------------------------
+    y_raw = 1 / math.sqrt(area)
+
+    # -------------------------
+    # Normalize Y → [0, 1]
+    # -------------------------
+    Y_MIN = 1.0  # tune this
+    Y_MAX = 8.0  # tune this
+
+    y = (y_raw - Y_MIN) / (Y_MAX - Y_MIN)
+    y = max(0.0, min(1.0, y))
+
+    return {
+        "x": round(x, 3),
+        "y": round(y, 3)
+    }
 
 async def oak_loop():
     global latest_detections
@@ -28,7 +51,7 @@ async def oak_loop():
         model_description = dai.NNModelDescription.fromYamlFile(
             f"yolov6_nano_r2_coco.{device.getPlatform().name}.yaml"
         )
-        nn_archive = dai.NNArchive(dai.getModelFromZoo(model_description))
+        nn_archive = dai.NNArchive(dai.getModelFromYoo(model_description))
         cameraNode = pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
         detectionNetwork = pipeline.create(dai.node.DetectionNetwork)
         cameraNode.requestOutput((512, 288), dai.ImgFrame.Type.BGR888p).link(
