@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import cv2
 import depthai as dai
-from depthai_nodes.node import ApplyDepthColormap
+from depthai_nodes.node import ApplyColormap
 from typing import Optional
 from utils.arguments import initialize_argparser
 
@@ -27,28 +27,16 @@ with dai.Pipeline(device) as pipeline:
     nn_archive = dai.NNArchive(dai.getModelFromZoo(model_description))
     cameraNode = pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
 
-    if platform == dai.Platform.RVC2:
-        detectionNetwork = pipeline.create(dai.node.DetectionNetwork)
-        cameraNode.requestOutput(NN_DIMENSIONS, dai.ImgFrame.Type.BGR888p).link(
-            detectionNetwork.input
-        )
-        detectionNetwork.setNNArchive(nn_archive, numShaves=4)
-    else:
-        detectionNetwork = pipeline.create(dai.node.DetectionNetwork).build(
-            cameraNode.requestOutput(NN_DIMENSIONS, dai.ImgFrame.Type.BGR888i),
-            nn_archive,
-        )
+    detectionNetwork = pipeline.create(dai.node.DetectionNetwork)
+    cameraNode.requestOutput(NN_DIMENSIONS, dai.ImgFrame.Type.BGR888p).link(
+        detectionNetwork.input
+    )
+    detectionNetwork.setNNArchive(nn_archive, numShaves=4)
 
     outputToEncode = cameraNode.requestOutput((1440, 1080), type=dai.ImgFrame.Type.NV12)
-    # h264Encoder = pipeline.create(dai.node.VideoEncoder)
-    # h264Encoder.setDefaultProfilePreset(
-    #     30, dai.VideoEncoderProperties.Profile.H264_MAIN
-    # )
-    # outputToEncode.link(h264Encoder.input)
-
+    
     # Add the remote connector topics
     visualizer.addTopic("Raw video", outputToEncode)
-    # visualizer.addTopic("Video H264", h264Encoder.out)
     visualizer.addTopic("Detections", detectionNetwork.out)
     nnout = detectionNetwork.out.createOutputQueue()
 
@@ -82,13 +70,13 @@ with dai.Pipeline(device) as pipeline:
             align = pipeline.create(dai.node.ImageAlign)
             stereo.depth.link(align.input)
             cam_out.link(align.inputAlignTo)
-            coloredDepth = pipeline.create(ApplyDepthColormap).build(
+            coloredDepth = pipeline.create(ApplyColormap).build(
                 align.outputAligned
             )
         else:
             stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
             stereo.setOutputSize(800, 600)
-            coloredDepth = pipeline.create(ApplyDepthColormap).build(stereo.disparity)
+            coloredDepth = pipeline.create(ApplyColormap).build(stereo.disparity)
         coloredDepth.setColormap(cv2.COLORMAP_JET)
         visualizer.addTopic("Depth", coloredDepth.out)
 

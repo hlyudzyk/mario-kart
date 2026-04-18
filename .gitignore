@@ -1,6 +1,7 @@
 # Python virtual environment                                                        
 backend/.venv/
 backend/venv/
+BE/venv/
 .vscode/
 # Python cache                                                                                     
 __pycache__/                                                                                       
@@ -16,4 +17,5 @@ __pycache__/
 backend/.depthai_cached_models/
 
 backend/.cache/
+backend/cache
 .idea/
