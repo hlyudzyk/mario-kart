@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass, asdict
 
 MAX_DELTA = 0.01
-NUM_CARS = 3
+NUM_CARS = 1
 SEND_INTERVAL = 5  # seconds
 
 
@@ -12,8 +12,6 @@ SEND_INTERVAL = 5  # seconds
 class Car:
     x: float       # 0-1
     y: float       # 0-1
-    width: float   # 0-1
-    height: float  # 0-1
 
 
 def clamp(value: float, min_val: float, max_val: float) -> float:
@@ -28,13 +26,9 @@ def smooth_move(current: float, min_val: float, max_val: float) -> float:
 def init_cars() -> list[Car]:
     cars = []
     for _ in range(NUM_CARS):
-        width = random.uniform(0.05, 0.2)
-        height = width * random.uniform(0.8, 1.2)  # roughly square-ish
         cars.append(Car(
             x=random.uniform(0.1, 0.9),
             y=random.uniform(0.1, 0.9),
-            width=width,
-            height=height,
         ))
     return cars
 
@@ -44,10 +38,6 @@ def update_cars(cars: list[Car]) -> list[Car]:
         # car.x = smooth_move(car.x, 0.0, 1.0)
         car.y = smooth_move(car.y, 0.3, 0.7)
 
-        # width and height scale together to preserve aspect ratio
-        aspect = car.height / car.width
-        car.width = clamp(car.width + random.uniform(-0.01, 0.01), 0.02, 0.4)
-        car.height = clamp(car.width * aspect, 0.02, 0.4)
     return cars
 
 

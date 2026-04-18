@@ -4,6 +4,8 @@ import depthai as dai
 from fastapi import FastAPI, WebSocket
 import uvicorn
 
+from faker.faker import build_payload, init_cars, update_cars
+
 app = FastAPI()
 
 # GLOBAL storage for latest detections
@@ -70,6 +72,22 @@ async def websocket_endpoint(websocket: WebSocket):
             await asyncio.sleep(0.03)
     except Exception as e:
         print("WebSocket closed:", e)
+
+
+@app.websocket("/wsTest")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    print("Client test connected")
+
+    try:
+        cars = init_cars()
+        while True:
+            cars = update_cars(cars)
+            payload = build_payload(cars)
+            await websocket.send_text(payload)
+            await asyncio.sleep(0.1)
+    except Exception as e:
+        print("WebSocket test closed:", e)
 
 
 # -----------------------------
