@@ -49,6 +49,7 @@ export default function App() {
   const { width, height } = useWindowDimensions();
   const socketRef = useRef<WebSocket | null>(null);
   const [cars, setCars] = useState<RemoteCar[]>([]);
+  const [wobbleTick, setWobbleTick] = useState(0);
 
   const sideBorderWidth = width * 0.1;
   const centerLineOffset = (width - sideBorderWidth * 2 - roadLineWidth) / 2;
@@ -60,12 +61,35 @@ export default function App() {
   const marioX = trackWidth * 0.75 - kartSize / 2;
   const marioY = height - kartSize - kartYOffset;
   const laneWidth = (trackWidth - roadLineWidth) / 2;
-  const leftLaneCenter = sideBorderWidth + laneWidth / 2 - kartSize / 2;
+  const leftLaneCenter = sideBorderWidth + laneWidth / 2 - kartSize + 10;
   const rightLaneCenter =
-    sideBorderWidth + laneWidth + roadLineWidth + laneWidth / 2 - kartSize / 2;
+    sideBorderWidth + laneWidth + roadLineWidth + laneWidth / 2 - kartSize + 10;
   const verticalTravel = height - kartSize - kartYOffset;
   const treeBaseWidth = sideBorderWidth + 40;
   const treeCount = Math.ceil(height / 150) + 3;
+  const roadLeftBound = sideBorderWidth + 4;
+  const roadRightBound = width - sideBorderWidth - kartSize - 4;
+  const laneWobble = 7;
+
+  useEffect(() => {
+    let frame = 0;
+
+    const animate = () => {
+      setWobbleTick((current) => current + 1);
+      frame = requestAnimationFrame(animate);
+    };
+
+    frame = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  const wobbleX = (seed: number, intensity = laneWobble) =>
+    Math.sin(wobbleTick * 0.08 + seed) * intensity +
+    Math.sin(wobbleTick * 0.21 + seed * 1.7) * (intensity * 0.35);
+
+  const clampLeft = (left: number) =>
+    Math.max(roadLeftBound, Math.min(roadRightBound, left));
 
   const leftTrees = useMemo(
     () =>
@@ -180,13 +204,17 @@ export default function App() {
           );
         })}
         <Kart
-          left={marioX}
+          left={clampLeft(marioX + wobbleX(0, 4))}
           top={marioY}
           size={kartSize}
           source={require("./assets/mario_kart_models_back/mario-back.png")}
         />
         {cars.map((car, index) => {
-          const left = car.x < 0.5 ? leftLaneCenter : rightLaneCenter;
+          const left =
+            clampLeft(
+              (car.x < 0.5 ? leftLaneCenter : rightLaneCenter) +
+                wobbleX(index + car.y * 10)
+            );
           const top = Math.max(0, verticalTravel * (1 - car.y));
 
           return (
@@ -261,4 +289,3 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
 });
-
