@@ -207,7 +207,7 @@ export default function App() {
             scrollOffset={roadScroll}
             viewportHeight={height}
             side="left"
-            source={require("./assets/mario_kart_models_front/tree.png")}
+            source={require("./assets/tree.png")}
           />
         ))}
         {rightTrees.map((tree, index) => (
@@ -219,7 +219,7 @@ export default function App() {
             scrollOffset={roadScroll}
             viewportHeight={height}
             side="right"
-            source={require("./assets/mario_kart_models_front/tree.png")}
+            source={require("./assets/tree.png")}
           />
         ))}
         <Kart
@@ -239,7 +239,7 @@ export default function App() {
           return (
             <Image
               key={`coin-${coin.id}`}
-              source={require("./assets/mario_kart_models_front/coin.png")}
+              source={require("./assets/coin.png")}
               style={{
                 position: "absolute",
                 left,
