@@ -11,7 +11,7 @@ app = FastAPI()
 latest_detections = []
 
 
-def compute_position(det: dict) -> dict | None:
+def compute_position(det: dict) -> dict:
     cx = (det["xmin"] + det["xmax"]) / 2
     width = det["xmax"] - det["xmin"]
     height = det["ymax"] - det["ymin"]
@@ -64,6 +64,8 @@ async def oak_loop():
             nn_msg = nnout.get()
             points = []
             for det in nn_msg.detections:
+                if det.labelName not in ["person", "car"]:
+                    continue
                 raw = {
                     "xmin": float(det.xmin),
                     "ymin": float(det.ymin),
