@@ -44,15 +44,14 @@ async def oak_loop():
 
             detections = []
             for det in nn_msg.detections:
-                if det.labelName == "person":
-                    detections.append({
-                        "label": det.labelName,
-                        "confidence": float(det.confidence),
-                        "xmin": float(det.xmin),
-                        "ymin": float(det.ymin),
-                        "xmax": float(det.xmax),
-                        "ymax": float(det.ymax),
-                    })
+                detections.append({
+                    "label": det.labelName,
+                    "confidence": float(det.confidence),
+                    "xmin": float(det.xmin),
+                    "ymin": float(det.ymin),
+                    "xmax": float(det.xmax),
+                    "ymax": float(det.ymax),
+                })
 
 
             latest_detections = detections

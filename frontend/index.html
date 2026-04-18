@@ -38,6 +38,7 @@ const ws = new WebSocket("ws://localhost:8000/ws");
 // Compute Mario Kart coordinates
 function computePosition(det) {
     const cx = (det.xmin + det.xmax) / 2;
+    const cy = (det.ymin + det.ymax) / 2;
     const width = det.xmax - det.xmin;
     const height = det.ymax - det.ymin;
 
@@ -45,8 +46,9 @@ function computePosition(det) {
     if (area <= 0) return null;
 
     const x = Math.round(cx - 0.5 * 10) / 10;  // 1 decimal
+    const y = Math.round(cy - 0.5 * 10) / 10;
     const z = Math.round(1 / Math.sqrt(area) * 10) / 10;
-    return { x, z };
+    return { x, y, z };
 }
 
 // Draw radar grid
@@ -91,7 +93,8 @@ function drawDetections(detections) {
         else if (pos.z < 4) color = "orange";
 
         ctx.fillStyle = color;
-
+        
+        ctx.fillText(det.label, screenX + 10, screenY)
         ctx.beginPath();
         ctx.arc(screenX, screenY, 6, 0, 2 * Math.PI);
         ctx.fill();
