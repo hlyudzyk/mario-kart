@@ -1,0 +1,72 @@
+sequenceNum: 38
+ts:
+    nsec: 977120815
+    sec: 9261
+tsDevice:
+    nsec: 173800172
+    sec: 4
+detections: [
+    boundingBox:
+        angle: 0
+        center:
+            hasNormalized: true
+            normalized: true
+            x: 0.388916
+            y: 0.501736
+        size:
+            hasNormalized: true
+            height: 0.99566
+            normalized: true
+            width: 0.775391
+    confidence: 0.796875
+    keypoints: null
+    label: 0
+    labelName: person
+    xmax: 0.776611
+    xmin: 0.0012207
+    ymax: 0.999566
+    ymin: 0.00390625,
+]
+segmentationMaskHeight: 0
+segmentationMaskWidth: 0
+transformation:
+    distortionCoefficients: [-0.76441, -13.9473, 0.000549202, -0.000827139, 34.5065, -0.988755, -12.8352, 32.8752, 0, 0, 0, 0, 0, 0,
+        ]
+    distortionModel: 0
+    height: 288
+    sourceIntrinsicMatrix: [[1493.49, 0, 1033.06,
+            ], [0, 1493.49, 798.343,
+            ], [0, 0, 1,
+            ],
+        ]
+    sourceIntrinsicMatrixInv: [[0.000669573, -0, -0.691708,
+            ], [-0, 0.000669573, -0.534549,
+            ], [0, -0, 1,
+            ],
+        ]
+    srcCrops: [
+            angle: 0
+            center:
+                hasNormalized: false
+                normalized: false
+                x: 255
+                y: 189
+            size:
+                hasNormalized: false
+                height: 286.875
+                normalized: false
+                width: 510,
+        ]
+    srcHeight: 1560
+    srcWidth: 2104
+    transformationMatrix: [[0.243346, 0, 0,
+            ], [0, 0.243258, -45.7412,
+            ], [0, 0, 1,
+            ],
+        ]
+    transformationMatrixInv: [[4.10938, -0, -0,
+            ], [-0, 4.11086, 188.036,
+            ], [0, -0, 1,
+            ],
+        ]
+    width: 512
