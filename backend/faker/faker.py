@@ -42,7 +42,7 @@ def init_cars() -> list[Car]:
 def update_cars(cars: list[Car]) -> list[Car]:
     for car in cars:
         # car.x = smooth_move(car.x, 0.0, 1.0)
-        car.y = smooth_move(car.y, 0.0, 1.0)
+        car.y = smooth_move(car.y, 0.3, 0.7)
 
         # width and height scale together to preserve aspect ratio
         aspect = car.height / car.width
