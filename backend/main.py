@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import cv2
 import depthai as dai
 from depthai_nodes.node import ApplyColormap
@@ -16,6 +15,7 @@ if not device.setIrLaserDotProjectorIntensity(1):
     print(
         "Failed to set IR laser projector intensity. Maybe your device does not support this feature."
     )
+
 with dai.Pipeline(device) as pipeline:
     print("Creating pipeline...")
     platform = device.getPlatform()

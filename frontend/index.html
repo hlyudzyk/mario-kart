@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>OAK Car Coordinates</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #status {
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .box {
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-bottom: 8px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>🚗 Live Car Coordinates</h2>
+<div id="status">Connecting...</div>
+<div id="output"></div>
+
+<script>
+    const statusEl = document.getElementById("status");
+    const outputEl = document.getElementById("output");
+
+    const ws = new WebSocket("ws://0.0.0.0:8000/ws");
+
+    ws.onopen = () => {
+        statusEl.innerText = "🟢 Connected";
+    };
+
+    ws.onclose = () => {
+        statusEl.innerText = "🔴 Disconnected";
+    };
+
+    ws.onerror = () => {
+        statusEl.innerText = "⚠️ Error";
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        outputEl.innerHTML = "";
+
+        data.forEach((det, i) => {
+            const div = document.createElement("div");
+            div.className = "box";
+
+            div.innerHTML = `
+                <b>X:</b> ${det.x} m <br/>
+                <b>Y:</b> ${det.y} m <br/>
+            `;
+
+            outputEl.appendChild(div);
+        });
+    };
+</script>
+
+</body>
+</html>
