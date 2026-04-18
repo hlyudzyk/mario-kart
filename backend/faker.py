@@ -12,6 +12,8 @@ SEND_INTERVAL = 5  # seconds
 class Car:
     x: float       # 0-1
     y: float       # 0-1
+    id: int
+    label: str
 
 
 def clamp(value: float, min_val: float, max_val: float) -> float:
@@ -25,11 +27,15 @@ def smooth_move(current: float, min_val: float, max_val: float) -> float:
 
 def init_cars() -> list[Car]:
     cars = []
+    car_id = 0
     for _ in range(NUM_CARS):
         cars.append(Car(
             x=random.uniform(0.1, 0.9),
             y=random.uniform(0.1, 0.9),
+            id=car_id + 1,
+            label="car"
         ))
+        car_id += 1
     return cars
 
 

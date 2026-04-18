@@ -11,7 +11,7 @@ app = FastAPI()
 latest_detections = []
 
 
-def compute_position(det: dict) -> dict | None:
+def compute_position(det: dict) -> dict:
     cx = (det["xmin"] + det["xmax"]) / 2
     width = det["xmax"] - det["xmin"]
     height = det["ymax"] - det["ymin"]
@@ -52,28 +52,58 @@ async def oak_loop():
             f"yolov6_nano_r2_coco.{device.getPlatform().name}.yaml"
         )
         nn_archive = dai.NNArchive(dai.getModelFromZoo(model_description))
+
         cameraNode = pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
         detectionNetwork = pipeline.create(dai.node.DetectionNetwork)
+
         cameraNode.requestOutput((512, 288), dai.ImgFrame.Type.BGR888p).link(
             detectionNetwork.input
         )
         detectionNetwork.setNNArchive(nn_archive, numShaves=4)
-        nnout = detectionNetwork.out.createOutputQueue()
+
+         # --- ADD: ObjectTracker node ---
+        objectTracker = pipeline.create(dai.node.ObjectTracker)
+        objectTracker.setDetectionLabelsToTrack([0, 2])  # 0=person, 2=car in COCO
+        objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
+        objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.UNIQUE_ID)
+
+
+        # Wire NN → tracker (two links required)
+        detectionNetwork.passthrough.link(objectTracker.inputTrackerFrame)
+        detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
+        detectionNetwork.out.link(objectTracker.inputDetections)
+        
+        trackerOut = objectTracker.out.createOutputQueue()
         pipeline.start()
+
         while pipeline.isRunning():
-            nn_msg = nnout.get()
+            tracklets_msg = trackerOut.get()
             points = []
-            for det in nn_msg.detections:
+            for t in tracklets_msg.tracklets:
+                # Skip lost objects — they're gone from the scene
+                if t.status == dai.Tracklet.TrackingStatus.LOST:
+                    continue
+
+                label_name = t.label
+                if label_name == 0:
+                    label_str = "person"
+                elif label_name == 2:
+                    label_str = "car"
+                else:
+                    continue
+
                 raw = {
-                    "xmin": float(det.xmin),
-                    "ymin": float(det.ymin),
-                    "xmax": float(det.xmax),
-                    "ymax": float(det.ymax),
+                    "xmin": float(t.roi.x),
+                    "ymin": float(t.roi.y),
+                    "xmax": float(t.roi.x + t.roi.width),
+                    "ymax": float(t.roi.y + t.roi.height),
                 }
                 pos = compute_position(raw)
-                pos["label"] = det.labelName
                 if pos:
+                    pos["label"] = label_str
+                    pos["id"] = t.id
                     points.append(pos)
+
             latest_detections = points
             await asyncio.sleep(0.01)
 
