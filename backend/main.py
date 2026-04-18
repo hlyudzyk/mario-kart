@@ -4,7 +4,7 @@ import depthai as dai
 from fastapi import FastAPI, WebSocket
 import uvicorn
 
-from faker.faker import build_payload, init_cars, update_cars
+from faker import build_payload, init_cars, update_cars
 
 app = FastAPI()
 
