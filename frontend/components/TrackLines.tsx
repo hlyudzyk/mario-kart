@@ -8,23 +8,32 @@ export const centerDashGap = 36;
 type TrackLinesProps = {
   centerLineOffset: number;
   dashCount: number;
+  scrollOffset: number;
 };
 
-export const TrackLines = ({ centerLineOffset, dashCount }: TrackLinesProps) => {
+export const TrackLines = ({ centerLineOffset, dashCount, scrollOffset }: TrackLinesProps) => {
+  const dashCycle = centerDashHeight + centerDashGap;
+  const totalHeight = dashCount * dashCycle;
+
   return (
     <>
       <View pointerEvents="none" style={[styles.divider, styles.leftDivider]} />
       <View pointerEvents="none" style={[styles.divider, styles.rightDivider]} />
       <View pointerEvents="none" style={[styles.centerLine, { left: centerLineOffset }]}>
-        {Array.from({ length: dashCount }).map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.centerLineDash,
-              index < dashCount - 1 && styles.centerLineDashSpacing,
-            ]}
-          />
-        ))}
+        {Array.from({ length: dashCount }).map((_, index) => {
+          const top =
+            ((index * dashCycle + scrollOffset) % totalHeight + totalHeight) % totalHeight;
+
+          return (
+            <View
+              key={index}
+              style={[
+                styles.centerLineDash,
+                { top },
+              ]}
+            />
+          );
+        })}
       </View>
     </>
   );
@@ -50,15 +59,12 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: roadLineWidth,
-    alignItems: "stretch",
     zIndex: 1,
   },
   centerLineDash: {
+    position: "absolute",
     width: roadLineWidth,
     height: centerDashHeight,
     backgroundColor: "#fff",
-  },
-  centerLineDashSpacing: {
-    marginBottom: centerDashGap,
   },
 });

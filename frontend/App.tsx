@@ -1,14 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
-  ImageSourcePropType,
   StyleSheet,
   View,
   useWindowDimensions,
 } from "react-native";
 import { Kart } from "./components/Kart";
 import { TrackLines, roadLineWidth, centerDashHeight, centerDashGap } from "./components/TrackLines";
-import { Tree, TreeData } from "./components/Tree";
+import { Tree } from "./components/Tree";
 import { Scoreboard } from "./components/Scoreboard";
 
 type RemoteCar = {
@@ -25,11 +24,14 @@ type Coin = {
 export default function App() {
   const { width, height } = useWindowDimensions();
   const socketRef = useRef<WebSocket | null>(null);
+  const roadScrollRef = useRef(0);
+  const lastFrameTimeRef = useRef<number | null>(null);
   const [cars, setCars] = useState<RemoteCar[]>([]);
   const [coins, setCoins] = useState<Coin[]>([]);
   const [score, setScore] = useState(0);
   const coinIdCounter = useRef(0);
   const [wobbleTick, setWobbleTick] = useState(0);
+  const [roadScroll, setRoadScroll] = useState(0);
 
   const sideBorderWidth = width * 0.1;
   const centerLineOffset = (width - sideBorderWidth * 2 - roadLineWidth) / 2;
@@ -56,7 +58,13 @@ export default function App() {
     let lastCoinSpawn = 0;
 
     const animate = (time: number) => {
+      const previousTime = lastFrameTimeRef.current ?? time;
+      const delta = time - previousTime;
+      lastFrameTimeRef.current = time;
+
       setWobbleTick((current) => current + 1);
+      roadScrollRef.current += delta * 0.18;
+      setRoadScroll(roadScrollRef.current);
 
       if (time - lastCoinSpawn > 1500) {
         lastCoinSpawn = time;
@@ -102,7 +110,10 @@ export default function App() {
 
     frame = requestAnimationFrame(animate);
 
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      lastFrameTimeRef.current = null;
+    };
   }, []);
 
   const wobbleX = (seed: number, intensity = laneWobble) =>
@@ -193,6 +204,8 @@ export default function App() {
             tree={tree}
             sideBorderWidth={sideBorderWidth}
             treeBaseWidth={treeBaseWidth}
+            scrollOffset={roadScroll}
+            viewportHeight={height}
             side="left"
             source={require("./assets/mario_kart_models_front/tree.png")}
           />
@@ -203,6 +216,8 @@ export default function App() {
             tree={tree}
             sideBorderWidth={sideBorderWidth}
             treeBaseWidth={treeBaseWidth}
+            scrollOffset={roadScroll}
+            viewportHeight={height}
             side="right"
             source={require("./assets/mario_kart_models_front/tree.png")}
           />
@@ -244,6 +259,10 @@ export default function App() {
                 wobbleX(index + car.y * 10)
             );
           const top = Math.max(0, verticalTravel * (1 - car.y));
+          const source =
+            car.x < 0.5
+              ? require("./assets/mario_kart_models_front/luigi-front.png")
+              : require("./assets/mario_kart_models_back/luigi-back.png");
 
           return (
             <Kart
@@ -251,12 +270,16 @@ export default function App() {
               left={left}
               top={top}
               size={kartSize}
-              source={require("./assets/mario_kart_models_back/luigi-back.png")}
+              source={source}
             />
           );
         })}
       </View>
-      <TrackLines centerLineOffset={centerLineOffset} dashCount={dashCount} />
+      <TrackLines
+        centerLineOffset={centerLineOffset}
+        dashCount={dashCount}
+        scrollOffset={roadScroll}
+      />
     </View>
   );
 }
