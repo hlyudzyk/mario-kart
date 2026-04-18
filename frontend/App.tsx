@@ -6,44 +6,14 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { Kart } from "./components/Kart";
+import { TrackLines, roadLineWidth, centerDashHeight, centerDashGap } from "./components/TrackLines";
+import { Tree, TreeData } from "./components/Tree";
 
 type RemoteCar = {
   x: number;
   y: number;
 };
-
-type KartProps = {
-  left: number;
-  top: number;
-  size: number;
-  source: ImageSourcePropType;
-};
-
-const Kart = ({ left, top, size, source }: KartProps) => {
-  return (
-    <View
-      style={[
-        styles.kart,
-        {
-          left,
-          top,
-          width: size,
-          height: size,
-        },
-      ]}
-    >
-      <Image
-        source={source}
-        style={{ width: "100%", height: "100%" }}
-        resizeMode="contain"
-      />
-    </View>
-  );
-};
-
-const roadLineWidth = 8;
-const centerDashHeight = 24;
-const centerDashGap = 36;
 
 export default function App() {
   const { width, height } = useWindowDimensions();
@@ -165,44 +135,26 @@ export default function App() {
       ]}
     >
       <View style={styles.gameContainer}>
-        {leftTrees.map((tree, index) => {
-          const tWidth = treeBaseWidth * tree.scale;
-
-          return (
-            <Image
-              key={`left-tree-${index}`}
-              source={require("./assets/mario_kart_models_front/tree.png")}
-              style={{
-                position: "absolute",
-                left: -sideBorderWidth + (sideBorderWidth - tWidth) / 2 + tree.offsetX,
-                top: tree.top,
-                width: tWidth,
-                height: tWidth * 1.55,
-                resizeMode: "contain",
-                zIndex: 10,
-              }}
-            />
-          );
-        })}
-        {rightTrees.map((tree, index) => {
-          const tWidth = treeBaseWidth * tree.scale;
-
-          return (
-            <Image
-              key={`right-tree-${index}`}
-              source={require("./assets/mario_kart_models_front/tree.png")}
-              style={{
-                position: "absolute",
-                right: -sideBorderWidth + (sideBorderWidth - tWidth) / 2 + tree.offsetX,
-                top: tree.top,
-                width: tWidth,
-                height: tWidth * 1.55,
-                resizeMode: "contain",
-                zIndex: 10,
-              }}
-            />
-          );
-        })}
+        {leftTrees.map((tree, index) => (
+          <Tree
+            key={`left-tree-${index}`}
+            tree={tree}
+            sideBorderWidth={sideBorderWidth}
+            treeBaseWidth={treeBaseWidth}
+            side="left"
+            source={require("./assets/mario_kart_models_front/tree.png")}
+          />
+        ))}
+        {rightTrees.map((tree, index) => (
+          <Tree
+            key={`right-tree-${index}`}
+            tree={tree}
+            sideBorderWidth={sideBorderWidth}
+            treeBaseWidth={treeBaseWidth}
+            side="right"
+            source={require("./assets/mario_kart_models_front/tree.png")}
+          />
+        ))}
         <Kart
           left={clampLeft(marioX + wobbleX(0, 4))}
           top={marioY}
@@ -228,19 +180,7 @@ export default function App() {
           );
         })}
       </View>
-      <View pointerEvents="none" style={[styles.divider, styles.leftDivider]} />
-      <View pointerEvents="none" style={[styles.divider, styles.rightDivider]} />
-      <View pointerEvents="none" style={[styles.centerLine, { left: centerLineOffset }]}>
-        {Array.from({ length: dashCount }).map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.centerLineDash,
-              index < dashCount - 1 && styles.centerLineDashSpacing,
-            ]}
-          />
-        ))}
-      </View>
+      <TrackLines centerLineOffset={centerLineOffset} dashCount={dashCount} />
     </View>
   );
 }
@@ -253,39 +193,5 @@ const styles = StyleSheet.create({
   },
   gameContainer: {
     flex: 1,
-  },
-  divider: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: roadLineWidth,
-    backgroundColor: "#fff",
-    zIndex: 1,
-  },
-  leftDivider: {
-    left: 0,
-  },
-  rightDivider: {
-    right: 0,
-  },
-  centerLine: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: roadLineWidth,
-    alignItems: "stretch",
-    zIndex: 1,
-  },
-  centerLineDash: {
-    width: roadLineWidth,
-    height: centerDashHeight,
-    backgroundColor: "#fff",
-  },
-  centerLineDashSpacing: {
-    marginBottom: centerDashGap,
-  },
-  kart: {
-    position: "absolute",
-    backgroundColor: "transparent",
   },
 });
