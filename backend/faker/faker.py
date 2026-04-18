@@ -3,7 +3,7 @@ import random
 import time
 from dataclasses import dataclass, asdict
 
-MAX_DELTA = 0.05
+MAX_DELTA = 0.01
 NUM_CARS = 3
 SEND_INTERVAL = 5  # seconds
 
@@ -52,11 +52,13 @@ def update_cars(cars: list[Car]) -> list[Car]:
 
 
 def build_payload(cars: list[Car]) -> str:
-    return json.dumps({
-        "ts": int(time.time() * 1000),
-        "carsList": [asdict(car) for car in cars],
-    })
+    return json.dumps([asdict(car) for car in cars])
 
+def give_me_payload():
+    cars = init_cars()
+    cars = update_cars(cars)
+    print(build_payload(cars))
+    time.sleep(SEND_INTERVAL)
 
 if __name__ == "__main__":
     cars = init_cars()
