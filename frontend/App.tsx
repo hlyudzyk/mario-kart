@@ -1,60 +1,27 @@
-import React from "react";
-import { StyleSheet, View, useWindowDimensions, Image, Dimensions, Text } from "react-native";
-import { GameEngine } from "react-native-game-engine";
+/**
+ * Sample React Native App
+ * https://github.com/facebook/react-native
+ *
+ * @format
+ */
 
-const MoveSystem = (entities, { time }) => {
-  const window = Dimensions.get("window");
-  const playAreaWidth = window.width - (window.width * 0.10 * 2);
-  const playAreaHeight = window.height;
+import { NewAppScreen } from '@react-native/new-app-screen';
+import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
-  const square = entities.square;
-  if (!square) return entities;
+function App() {
+  const isDarkMode = useColorScheme() === 'dark';
 
-  square.position.x += square.velocity.x * (time.delta / 1000);
-  square.position.y += square.velocity.y * (time.delta / 1000);
-
-  // Bounce off lateral edges based on calculated screen dimensions
-  if (square.position.x <= 0) {
-    square.position.x = 0;
-    square.velocity.x *= -1;
-  } else if (square.position.x + square.size >= playAreaWidth) {
-    square.position.x = playAreaWidth - square.size;
-    square.velocity.x *= -1;
-  }
-
-  // Bounce off top/bottom edges
-  if (square.position.y <= 0) {
-    square.position.y = 0;
-    square.velocity.y *= -1;
-  } else if (square.position.y + square.size >= playAreaHeight) {
-    square.position.y = playAreaHeight - square.size;
-    square.velocity.y *= -1;
-  }
-
-  return entities;
-};
-
-const Square = ({ position, size }) => {
   return (
-    <View
-      style={[
-        styles.square,
-        {
-          left: position.x,
-          top: position.y,
-          width: size,
-          height: size,
-        },
-      ]}
-    >
-      <Image 
-        source={require('./assets/mario_kart_models_back/mario-back.png')} 
-        style={{ width: '100%', height: '100%' }} 
-        resizeMode="contain" 
-      />
-    </View>
+    <SafeAreaProvider>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+      <AppContent />
+    </SafeAreaProvider>
   );
-};
+}
 
 const roadLineWidth = 8;
 const centerDashHeight = 24;
@@ -176,63 +143,9 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  speedIndicator: {
-    position: "absolute",
-    top: 60, // Safe area clearance
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#fff",
-    zIndex: 100,
-  },
-  speedText: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "bold",
-    fontFamily: "CourierNewPS-BoldMT", // A more arcade/digital looking font if available, or fallback
-  },
   container: {
     flex: 1,
-    backgroundColor: "#111",
-    borderColor: "green",
-  },
-  gameContainer: {
-    flex: 1,
-  },
-  divider: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: roadLineWidth,
-    backgroundColor: "#fff",
-    zIndex: 1,
-  },
-  leftDivider: {
-    left: 0,
-  },
-  rightDivider: {
-    right: 0,
-  },
-  centerLine: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    width: roadLineWidth,
-    alignItems: "stretch",
-    zIndex: 1,
-  },
-  centerLineDash: {
-    width: roadLineWidth,
-    height: centerDashHeight,
-    backgroundColor: "#fff",
-  },
-  centerLineDashSpacing: {
-    marginBottom: centerDashGap,
-  },
-  square: {
-    position: "absolute",
-    backgroundColor: "transparent",
   },
 });
+
+export default App;
