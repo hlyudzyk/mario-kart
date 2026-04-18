@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, useWindowDimensions, Image, Dimensions } from "react-native";
+import { StyleSheet, View, useWindowDimensions, Image, Dimensions, Text } from "react-native";
 import { GameEngine } from "react-native-game-engine";
 
 const MoveSystem = (entities, { time }) => {
@@ -167,11 +167,32 @@ export default function App() {
           />
         ))}
       </View>
+      {/* Speed Indicator */}
+      <View style={[styles.speedIndicator, { left: -sideBorderWidth + 10 }]}>
+        <Text style={styles.speedText}>50 km/h</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  speedIndicator: {
+    position: "absolute",
+    top: 60, // Safe area clearance
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#fff",
+    zIndex: 100,
+  },
+  speedText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+    fontFamily: "CourierNewPS-BoldMT", // A more arcade/digital looking font if available, or fallback
+  },
   container: {
     flex: 1,
     backgroundColor: "#111",
