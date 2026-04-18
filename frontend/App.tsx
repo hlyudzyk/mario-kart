@@ -1,52 +1,5 @@
-// /**
-//  * Sample React Native App
-//  * https://github.com/facebook/react-native
-//  *
-//  * @format
-//  */
-
-// import { NewAppScreen } from '@react-native/new-app-screen';
-// import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-// import {
-//   SafeAreaProvider,
-//   useSafeAreaInsets,
-// } from 'react-native-safe-area-context';
-
-// function App() {
-//   const isDarkMode = useColorScheme() === 'dark';
-
-//   return (
-//     <SafeAreaProvider>
-//       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-//       <AppContent />
-//     </SafeAreaProvider>
-//   );
-// }
-
-// function AppContent() {
-//   const safeAreaInsets = useSafeAreaInsets();
-
-//   return (
-//     <View style={styles.container}>
-//       <NewAppScreen
-//         templateFileName="App.tsx"
-//         safeAreaInsets={safeAreaInsets}
-//       />
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//   },
-// });
-
-// export default App;
-
-
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, useWindowDimensions } from "react-native";
 import { GameEngine } from "react-native-game-engine";
 
 const MoveSystem = (entities, { time }) => {
@@ -83,7 +36,15 @@ const Square = ({ position, size }) => {
   );
 };
 
+const roadLineWidth = 8;
+const centerDashHeight = 24;
+const centerDashGap = 36;
 export default function App() {
+  const { width, height } = useWindowDimensions();
+  const sideBorderWidth = width * 0.10;
+  const centerLineOffset = (width - sideBorderWidth * 2 - roadLineWidth) / 2;
+  const dashCount = Math.ceil(height / (centerDashHeight + centerDashGap));
+
   const entities = {
     square: {
       position: { x: 100, y: 100 },
@@ -94,8 +55,29 @@ export default function App() {
   };
 
   return (
-    <View style={styles.container}>
-      <GameEngine style={styles.gameContainer} systems={[MoveSystem]} entities={entities} />
+    <View
+      style={[
+        styles.container,
+        {
+          borderLeftWidth: sideBorderWidth,
+          borderRightWidth: sideBorderWidth,
+        },
+      ]}
+    >
+      <GameEngine style={styles.gameContainer}  />
+      <View pointerEvents="none" style={[styles.divider, styles.leftDivider]} />
+      <View pointerEvents="none" style={[styles.divider, styles.rightDivider]} />
+      <View pointerEvents="none" style={[styles.centerLine, { left: centerLineOffset }]}>
+        {Array.from({ length: dashCount }).map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.centerLineDash,
+              index < dashCount - 1 && styles.centerLineDashSpacing,
+            ]}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -104,9 +86,40 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#111",
+    borderColor: "green",
   },
   gameContainer: {
     flex: 1,
+  },
+  divider: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: roadLineWidth,
+    backgroundColor: "#fff",
+    zIndex: 1,
+  },
+  leftDivider: {
+    left: 0,
+  },
+  rightDivider: {
+    right: 0,
+  },
+  centerLine: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: roadLineWidth,
+    alignItems: "stretch",
+    zIndex: 1,
+  },
+  centerLineDash: {
+    width: roadLineWidth,
+    height: centerDashHeight,
+    backgroundColor: "#fff",
+  },
+  centerLineDashSpacing: {
+    marginBottom: centerDashGap,
   },
   square: {
     position: "absolute",
