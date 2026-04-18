@@ -1,19 +1,33 @@
 import React from "react";
-import { StyleSheet, View, useWindowDimensions } from "react-native";
+import { StyleSheet, View, useWindowDimensions, Image, Dimensions } from "react-native";
 import { GameEngine } from "react-native-game-engine";
 
 const MoveSystem = (entities, { time }) => {
+  const window = Dimensions.get("window");
+  const playAreaWidth = window.width - (window.width * 0.10 * 2);
+  const playAreaHeight = window.height;
+
   const square = entities.square;
   if (!square) return entities;
 
   square.position.x += square.velocity.x * (time.delta / 1000);
   square.position.y += square.velocity.y * (time.delta / 1000);
 
-  if (square.position.x <= 0 || square.position.x + square.size >= 360) {
+  // Bounce off lateral edges based on calculated screen dimensions
+  if (square.position.x <= 0) {
+    square.position.x = 0;
+    square.velocity.x *= -1;
+  } else if (square.position.x + square.size >= playAreaWidth) {
+    square.position.x = playAreaWidth - square.size;
     square.velocity.x *= -1;
   }
 
-  if (square.position.y <= 0 || square.position.y + square.size >= 640) {
+  // Bounce off top/bottom edges
+  if (square.position.y <= 0) {
+    square.position.y = 0;
+    square.velocity.y *= -1;
+  } else if (square.position.y + square.size >= playAreaHeight) {
+    square.position.y = playAreaHeight - square.size;
     square.velocity.y *= -1;
   }
 
@@ -32,7 +46,13 @@ const Square = ({ position, size }) => {
           height: size,
         },
       ]}
-    />
+    >
+      <Image 
+        source={require('./assets/mario_kart_models_back/mario-back.png')} 
+        style={{ width: '100%', height: '100%' }} 
+        resizeMode="contain" 
+      />
+    </View>
   );
 };
 
@@ -45,11 +65,15 @@ export default function App() {
   const centerLineOffset = (width - sideBorderWidth * 2 - roadLineWidth) / 2;
   const dashCount = Math.ceil(height / (centerDashHeight + centerDashGap));
 
+  const trackWidth = width - sideBorderWidth * 2;
+  const kartSize = 110;
+  const kartX = (trackWidth * 0.75) - (kartSize / 2); 
+  const kartY = height - kartSize - 60;
+
   const entities = {
     square: {
-      position: { x: 100, y: 100 },
-      velocity: { x: 120, y: 90 },
-      size: 50,
+      position: { x: kartX, y: kartY },
+      size: kartSize,
       renderer: Square,
     },
   };
@@ -64,7 +88,12 @@ export default function App() {
         },
       ]}
     >
-      <GameEngine style={styles.gameContainer}  />
+      <GameEngine 
+        key={`game-engine-${width}-${height}`}
+        style={styles.gameContainer}
+        systems={[]}
+        entities={entities}
+      />
       <View pointerEvents="none" style={[styles.divider, styles.leftDivider]} />
       <View pointerEvents="none" style={[styles.divider, styles.rightDivider]} />
       <View pointerEvents="none" style={[styles.centerLine, { left: centerLineOffset }]}>
@@ -123,6 +152,6 @@ const styles = StyleSheet.create({
   },
   square: {
     position: "absolute",
-    backgroundColor: "tomato",
+    backgroundColor: "transparent",
   },
 });
