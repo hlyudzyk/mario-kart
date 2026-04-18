@@ -26,22 +26,22 @@ def compute_position(det: dict) -> dict | None:
     x = cx
 
     # -------------------------
-    # Z raw (distance proxy)
+    # Y raw (distance proxy)
     # -------------------------
-    z_raw = 1 / math.sqrt(area)
+    y_raw = 1 / math.sqrt(area)
 
     # -------------------------
-    # Normalize Z → [0, 1]
+    # Normalize Y → [0, 1]
     # -------------------------
-    Z_MIN = 1.0  # tune this
-    Z_MAX = 8.0  # tune this
+    Y_MIN = 1.0  # tune this
+    Y_MAX = 8.0  # tune this
 
-    z = (z_raw - Z_MIN) / (Z_MAX - Z_MIN)
-    z = max(0.0, min(1.0, z))
+    y = (y_raw - Y_MIN) / (Y_MAX - Y_MIN)
+    y = max(0.0, min(1.0, y))
 
     return {
         "x": round(x, 3),
-        "z": round(z, 3)
+        "y": round(y, 3)
     }
 
 async def oak_loop():
@@ -51,7 +51,7 @@ async def oak_loop():
         model_description = dai.NNModelDescription.fromYamlFile(
             f"yolov6_nano_r2_coco.{device.getPlatform().name}.yaml"
         )
-        nn_archive = dai.NNArchive(dai.getModelFromZoo(model_description))
+        nn_archive = dai.NNArchive(dai.getModelFromYoo(model_description))
         cameraNode = pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
         detectionNetwork = pipeline.create(dai.node.DetectionNetwork)
         cameraNode.requestOutput((512, 288), dai.ImgFrame.Type.BGR888p).link(
