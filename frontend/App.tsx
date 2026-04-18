@@ -49,22 +49,53 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { GameEngine } from "react-native-game-engine";
 
-const EmptyRenderer = () => <View style={styles.box} />;
+const MoveSystem = (entities, { time }) => {
+  const square = entities.square;
+  if (!square) return entities;
+
+  square.position.x += square.velocity.x * (time.delta / 1000);
+  square.position.y += square.velocity.y * (time.delta / 1000);
+
+  if (square.position.x <= 0 || square.position.x + square.size >= 360) {
+    square.velocity.x *= -1;
+  }
+
+  if (square.position.y <= 0 || square.position.y + square.size >= 640) {
+    square.velocity.y *= -1;
+  }
+
+  return entities;
+};
+
+const Square = ({ position, size }) => {
+  return (
+    <View
+      style={[
+        styles.square,
+        {
+          left: position.x,
+          top: position.y,
+          width: size,
+          height: size,
+        },
+      ]}
+    />
+  );
+};
 
 export default function App() {
   const entities = {
-    background: {
-      renderer: EmptyRenderer,
+    square: {
+      position: { x: 100, y: 100 },
+      velocity: { x: 120, y: 90 },
+      size: 50,
+      renderer: Square,
     },
   };
 
   return (
     <View style={styles.container}>
-      <GameEngine
-        style={styles.gameContainer}
-        systems={[]}
-        entities={entities}
-      />
+      <GameEngine style={styles.gameContainer} systems={[MoveSystem]} entities={entities} />
     </View>
   );
 }
@@ -77,8 +108,8 @@ const styles = StyleSheet.create({
   gameContainer: {
     flex: 1,
   },
-  box: {
-    flex: 1,
-    backgroundColor: "#111",
+  square: {
+    position: "absolute",
+    backgroundColor: "tomato",
   },
 });
