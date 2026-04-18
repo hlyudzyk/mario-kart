@@ -1,69 +1,112 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Detection Viewer</title>
+    <title>Mario Kart Radar</title>
     <style>
-        body { font-family: Arial; }
+        body {
+            font-family: Arial;
+            text-align: center;
+            background: #111;
+            color: white;
+        }
         canvas {
-            border: 1px solid #ccc;
+            background: #222;
+            border: 2px solid #555;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
 
-<h2>📦 Live Detections</h2>
-<canvas id="canvas" width="640" height="480"></canvas>
+<h2>🚗 Radar View</h2>
+<canvas id="radar" width="400" height="600"></canvas>
 
 <script>
-const canvas = document.getElementById("canvas");
+const canvas = document.getElementById("radar");
 const ctx = canvas.getContext("2d");
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
-// Label mapping (optional)
-const labels = {
-    0: "person",
-    2: "car",
-    5: "bus",
-    7: "truck"
-};
+// Radar tuning
+const X_SCALE = 200;   // horizontal spread
+const Z_SCALE = 120;   // depth compression
 
-// Connect to WS
+// Connect WebSocket
 const ws = new WebSocket("ws://localhost:8000/ws");
 
+// Compute Mario Kart coordinates
+function computePosition(det) {
+    const cx = (det.xmin + det.xmax) / 2;
+    const width = det.xmax - det.xmin;
+    const height = det.ymax - det.ymin;
+
+    const area = width * height;
+    if (area <= 0) return null;
+
+    const x = Math.round(cx - 0.5 * 10) / 10;  // 1 decimal
+    const z = Math.round(1 / Math.sqrt(area) * 10) / 10;
+    return { x, z };
+}
+
+// Draw radar grid
+function drawGrid() {
+    ctx.strokeStyle = "#444";
+    ctx.lineWidth = 1;
+
+    for (let i = 1; i <= 5; i++) {
+        let y = HEIGHT - i * 100;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(WIDTH, y);
+        ctx.stroke();
+    }
+}
+
+// Draw your car
+function drawPlayer() {
+    ctx.fillStyle = "cyan";
+    ctx.beginPath();
+    ctx.arc(WIDTH / 2, HEIGHT - 20, 8, 0, 2 * Math.PI);
+    ctx.fill();
+
+    ctx.fillText("YOU", WIDTH / 2 - 15, HEIGHT - 30);
+}
+
+// Draw detected objects
+function drawDetections(detections) {
+    detections.forEach(det => {
+        const pos = computePosition(det);
+        if (!pos) return;
+
+        const screenX = WIDTH / 2 + pos.x * X_SCALE;
+        const screenY = HEIGHT - (pos.z * Z_SCALE);
+
+        // Clamp inside screen
+        if (screenY < 0) return;
+
+        // Color by distance
+        let color = "green";
+        if (pos.z < 2) color = "red";
+        else if (pos.z < 4) color = "orange";
+
+        ctx.fillStyle = color;
+
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 6, 0, 2 * Math.PI);
+        ctx.fill();
+    });
+}
+
+// Main render loop
 ws.onmessage = (event) => {
     const detections = JSON.parse(event.data);
 
-    // Clear canvas
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-    detections.forEach(det => {
-        // Convert normalized → pixels
-        const x1 = det.xmin * WIDTH;
-        const y1 = det.ymin * HEIGHT;
-        const x2 = det.xmax * WIDTH;
-        const y2 = det.ymax * HEIGHT;
-
-        const w = x2 - x1;
-        const h = y2 - y1;
-
-        // Draw rectangle
-        ctx.strokeStyle = "lime";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x1, y1, w, h);
-
-        // Label
-        const label = labels[det.label] || det.label;
-
-        ctx.fillStyle = "lime";
-        ctx.font = "14px Arial";
-        ctx.fillText(
-            `${label} (${det.confidence.toFixed(2)})`,
-            x1,
-            y1 - 5
-        );
-    });
+    drawGrid();
+    drawPlayer();
+    drawDetections(detections);
 };
 </script>
 
