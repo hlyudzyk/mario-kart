@@ -75,7 +75,7 @@ async def oak_loop():
         
         trackerOut = objectTracker.out.createOutputQueue()
         pipeline.start()
-        
+
         while pipeline.isRunning():
             tracklets_msg = trackerOut.get()
             points = []
@@ -84,8 +84,7 @@ async def oak_loop():
                 if t.status == dai.Tracklet.TrackingStatus.LOST:
                     continue
 
-                label_name = t.label  # int label index from COCO
-                # Map label index back to name (0=person, 2=car in COCO)
+                label_name = t.label
                 if label_name == 0:
                     label_str = "person"
                 elif label_name == 2:
@@ -102,7 +101,7 @@ async def oak_loop():
                 pos = compute_position(raw)
                 if pos:
                     pos["label"] = label_str
-                    pos["id"] = t.id  # <-- the persistent tracker ID
+                    pos["id"] = t.id
                     points.append(pos)
 
             latest_detections = points
