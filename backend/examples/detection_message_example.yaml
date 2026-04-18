@@ -45,24 +45,24 @@ transformation:
             ],
         ]
     srcCrops: [
-            angle: 0
-            center:
-                hasNormalized: false
-                normalized: false
-                x: 255
-                y: 189
-            size:
-                hasNormalized: false
-                height: 286.875
-                normalized: false
-                width: 510,
-        ]
+        angle: 0
+        center:
+            hasNormalized: false
+            normalized: false
+            x: 255
+            y: 189
+        size:
+            hasNormalized: false
+            height: 286.875
+            normalized: false
+            width: 510,
+    ]
     srcHeight: 1560
     srcWidth: 2104
-    transformationMatrix: [[0.243346, 0, 0,
-            ], [0, 0.243258, -45.7412,
-            ], [0, 0, 1,
-            ],
+    transformationMatrix: [
+        [0.243346, 0, 0,],
+        [0, 0.243258, -45.7412,],
+        [0, 0, 1,],
         ]
     transformationMatrixInv: [[4.10938, -0, -0,
             ], [-0, 4.11086, 188.036,

@@ -1,66 +1,70 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8" />
-    <title>OAK Car Coordinates</title>
+    <title>Detection Viewer</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        #status {
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-        .box {
-            padding: 10px;
-            border: 1px solid #ddd;
-            margin-bottom: 8px;
-            border-radius: 6px;
+        body { font-family: Arial; }
+        canvas {
+            border: 1px solid #ccc;
         }
     </style>
 </head>
 <body>
 
-<h2>🚗 Live Car Coordinates</h2>
-<div id="status">Connecting...</div>
-<div id="output"></div>
+<h2>📦 Live Detections</h2>
+<canvas id="canvas" width="640" height="480"></canvas>
 
 <script>
-    const statusEl = document.getElementById("status");
-    const outputEl = document.getElementById("output");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 
-    const ws = new WebSocket("ws://0.0.0.0:8000/ws");
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
 
-    ws.onopen = () => {
-        statusEl.innerText = "🟢 Connected";
-    };
+// Label mapping (optional)
+const labels = {
+    0: "person",
+    2: "car",
+    5: "bus",
+    7: "truck"
+};
 
-    ws.onclose = () => {
-        statusEl.innerText = "🔴 Disconnected";
-    };
+// Connect to WS
+const ws = new WebSocket("ws://localhost:8000/ws");
 
-    ws.onerror = () => {
-        statusEl.innerText = "⚠️ Error";
-    };
+ws.onmessage = (event) => {
+    const detections = JSON.parse(event.data);
 
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+    // Clear canvas
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-        outputEl.innerHTML = "";
+    detections.forEach(det => {
+        // Convert normalized → pixels
+        const x1 = det.xmin * WIDTH;
+        const y1 = det.ymin * HEIGHT;
+        const x2 = det.xmax * WIDTH;
+        const y2 = det.ymax * HEIGHT;
 
-        data.forEach((det, i) => {
-            const div = document.createElement("div");
-            div.className = "box";
+        const w = x2 - x1;
+        const h = y2 - y1;
 
-            div.innerHTML = `
-                <b>X:</b> ${det.x} m <br/>
-                <b>Y:</b> ${det.y} m <br/>
-            `;
+        // Draw rectangle
+        ctx.strokeStyle = "lime";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x1, y1, w, h);
 
-            outputEl.appendChild(div);
-        });
-    };
+        // Label
+        const label = labels[det.label] || det.label;
+
+        ctx.fillStyle = "lime";
+        ctx.font = "14px Arial";
+        ctx.fillText(
+            `${label} (${det.confidence.toFixed(2)})`,
+            x1,
+            y1 - 5
+        );
+    });
+};
 </script>
 
 </body>
