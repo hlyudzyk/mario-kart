@@ -1,19 +1,25 @@
+import cv2
 import depthai as dai
 
 
 def main():
-    devices = dai.Device.getAllAvailableDevices()
-    print(f"Found {len(devices)} device(s)")
+    pipeline = dai.Pipeline()
+    cam = pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
+    out = cam.requestOutput((1280, 720), dai.ImgFrame.Type.BGR888p)
 
-    for d in devices:
-        print(f"- {d.getDeviceId()} [{d.state.name}]")
+    q = out.createOutputQueue()
 
-    if not devices:
-        raise RuntimeError("No OAK device found")
+    pipeline.start()
+    print("Pipeline started")
 
-    with dai.Device() as device:
-        print("Connected to OAK")
-        print("Device info:", device.getDeviceId())
+    while pipeline.isRunning():
+        frame = q.get().getCvFrame()
+        cv2.imshow("OAK Camera", frame)
+        if cv2.waitKey(1) == ord("q"):
+            break
+
+    pipeline.stop()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
