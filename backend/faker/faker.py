@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass, asdict
 
 MAX_DELTA = 0.01
-NUM_CARS = 1
+NUM_CARS = 4
 SEND_INTERVAL = 5  # seconds
 
 
