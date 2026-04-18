@@ -51,7 +51,7 @@ async def oak_loop():
         model_description = dai.NNModelDescription.fromYamlFile(
             f"yolov6_nano_r2_coco.{device.getPlatform().name}.yaml"
         )
-        nn_archive = dai.NNArchive(dai.getModelFromYoo(model_description))
+        nn_archive = dai.NNArchive(dai.getModelFromZoo(model_description))
         cameraNode = pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
         detectionNetwork = pipeline.create(dai.node.DetectionNetwork)
         cameraNode.requestOutput((512, 288), dai.ImgFrame.Type.BGR888p).link(
