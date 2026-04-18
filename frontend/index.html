@@ -13,19 +13,23 @@
 <script>
 const canvas = document.getElementById("radar");
 const ctx = canvas.getContext("2d");
+
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
-const X_SCALE = 200;
-const Z_SCALE = 120;
-
 const ws = new WebSocket("ws://localhost:8000/ws");
 
+// -------------------------
+// GRID (now normalized)
+// -------------------------
 function drawGrid() {
-    ctx.strokeStyle = "#444";
+    ctx.strokeStyle = "#333";
     ctx.lineWidth = 1;
+
     for (let i = 1; i <= 5; i++) {
-        const y = HEIGHT - i * 100;
+        const z = i / 5; // normalized depth
+        const y = HEIGHT - z * HEIGHT;
+
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(WIDTH, y);
@@ -33,31 +37,59 @@ function drawGrid() {
     }
 }
 
+// -------------------------
+// PLAYER (center bottom)
+// -------------------------
 function drawPlayer() {
+    const x = WIDTH / 2;
+    const y = HEIGHT - 10;
+
     ctx.fillStyle = "cyan";
     ctx.beginPath();
-    ctx.arc(WIDTH / 2, HEIGHT - 20, 8, 0, 2 * Math.PI);
+    ctx.arc(x, y, 8, 0, 2 * Math.PI);
     ctx.fill();
-    ctx.fillText("YOU", WIDTH / 2 - 15, HEIGHT - 30);
+
+    ctx.fillText("YOU", x - 15, y - 15);
 }
 
+// -------------------------
+// POINTS (normalized mapping)
+// -------------------------
 function drawPoints(points) {
     points.forEach(({ x, z, label }) => {
-        const screenX = WIDTH / 2 + x * X_SCALE;
-        const screenY = HEIGHT - z * Z_SCALE;
-        if (screenY < 0) return;
 
-        ctx.fillStyle = z < 2 ? "red" : z < 4 ? "orange" : "green";
-        ctx.fillText(label, screenX + 10, screenY)
+        // map [0,1] → screen
+        const screenX = x * WIDTH;
+        const screenY = HEIGHT - z * HEIGHT;
+
+        // clamp just in case
+        if (screenY < 0 || screenY > HEIGHT) return;
+
+        // color by distance (normalized now!)
+        let color = "green";
+        if (z < 0.3) color = "red";
+        else if (z < 0.6) color = "orange";
+
+        ctx.fillStyle = color;
+
         ctx.beginPath();
         ctx.arc(screenX, screenY, 6, 0, 2 * Math.PI);
         ctx.fill();
+
+        ctx.fillStyle = "white";
+        ctx.font = "10px Arial";
+        ctx.fillText(label, screenX + 8, screenY);
     });
 }
 
+// -------------------------
+// RENDER LOOP
+// -------------------------
 ws.onmessage = (event) => {
     const points = JSON.parse(event.data);
+
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
     drawGrid();
     drawPlayer();
     drawPoints(points);

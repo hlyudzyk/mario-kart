@@ -10,16 +10,39 @@ app = FastAPI()
 
 latest_detections = []
 
+
 def compute_position(det: dict) -> dict | None:
     cx = (det["xmin"] + det["xmax"]) / 2
     width = det["xmax"] - det["xmin"]
     height = det["ymax"] - det["ymin"]
+
     area = width * height
     if area <= 0:
         return None
-    x = round((cx - 0.5) * 10) / 10
-    z = round(1 / math.sqrt(area) * 10) / 10
-    return {"x": x, "z": z}
+
+    # -------------------------
+    # X in [0, 1]
+    # -------------------------
+    x = cx
+
+    # -------------------------
+    # Z raw (distance proxy)
+    # -------------------------
+    z_raw = 1 / math.sqrt(area)
+
+    # -------------------------
+    # Normalize Z → [0, 1]
+    # -------------------------
+    Z_MIN = 1.0  # tune this
+    Z_MAX = 8.0  # tune this
+
+    z = (z_raw - Z_MIN) / (Z_MAX - Z_MIN)
+    z = max(0.0, min(1.0, z))
+
+    return {
+        "x": round(x, 3),
+        "z": round(z, 3)
+    }
 
 async def oak_loop():
     global latest_detections
