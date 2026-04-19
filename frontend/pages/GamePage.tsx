@@ -288,6 +288,30 @@ export const GamePage = () => {
           );
         })}
         {cars.map((car, index) => {
+          if (car.label === 'person') {
+            const coinSize = 50;
+            const left = clampLeft(
+              sideBorderWidth + car.x * trackWidth - coinSize / 2,
+            );
+            const top = Math.max(0, verticalTravel * (1 - car.y));
+
+            return (
+              <Image
+                key={`${index}-${car.id}-${car.x}-${car.y}`}
+                source={require('../assets/coin.png')}
+                style={{
+                  position: 'absolute',
+                  left,
+                  top,
+                  width: coinSize,
+                  height: coinSize,
+                  zIndex: 20,
+                }}
+                resizeMode="contain"
+              />
+            );
+          }
+
           const left = clampLeft(
             (car.x < 0.5 ? leftLaneCenter : rightLaneCenter) +
               wobbleX(index + car.y * 10),
