@@ -18,16 +18,16 @@ type LeaderboardPageProps = {
 };
 
 const TOP_RESULTS = [
-  { rank: 1, name: 'Janez Janša', score: 99, track: 'RAINBOW ROAD' },
-  { rank: 2, name: 'Challe Salle', score: 46, track: 'KOOPA BEACH' },
-  { rank: 3, name: 'Denis Avdić', score: 37, track: 'ROYAL CIRCUIT' },
-  { rank: 4, name: 'Damjan Murko', score: 35, track: 'MUSHROOM CUP' },
-  { rank: 5, name: 'Karl Erjavec', score: 32, track: 'YOSHI VALLEY' },
-  { rank: 6, name: 'Helena Blagne', score: 22, track: 'BOWSER CASTLE' },
+  { rank: 1, name: 'Janez', score: 99, track: 'RAINBOW ROAD' },
+  { rank: 2, name: 'Challe', score: 46, track: 'KOOPA BEACH' },
+  { rank: 3, name: 'Denis', score: 37, track: 'ROYAL CIRCUIT' },
+  { rank: 4, name: 'Damjan', score: 35, track: 'MUSHROOM CUP' },
+  { rank: 5, name: 'Karl', score: 32, track: 'YOSHI VALLEY' },
+  { rank: 6, name: 'Helena', score: 22, track: 'BOWSER CASTLE' },
   { rank: 7, name: 'Cimerotić', score: 18, track: 'JUNGLE PARKWAY' },
-  { rank: 8, name: 'Robert Golob', score: 17, track: 'WARIO STADIUM' },
+  { rank: 8, name: 'Robert', score: 17, track: 'WARIO STADIUM' },
   { rank: 9, name: 'Magnifico', score: 16, track: 'SHERBET LAND' },
-  { rank: 10, name: 'Zlatko Zahovič', score: 15, track: 'PEACH GARDENS' },
+  { rank: 10, name: 'Zlatko', score: 15, track: 'PEACH GARDENS' },
 ] as const;
 
 const pixelFont = Platform.select({
