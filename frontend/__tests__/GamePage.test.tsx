@@ -1,8 +1,30 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
-import { StyleSheet } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 import * as ReactNative from 'react-native';
 import { GamePage } from '../pages/GamePage';
+
+jest.mock('react-native-sound', () => {
+  return class MockSound {
+    static setCategory = jest.fn();
+
+    constructor(
+      _filename: unknown,
+      callback?: (error?: unknown) => void,
+    ) {
+      callback?.();
+    }
+
+    setNumberOfLoops = jest.fn(() => this);
+    setCurrentTime = jest.fn(() => this);
+    play = jest.fn(() => this);
+    stop = jest.fn((callback?: () => void) => {
+      callback?.();
+      return this;
+    });
+    release = jest.fn(() => this);
+  };
+});
 
 jest.mock('react-native-svg', () => {
   const ReactLib = require('react');
@@ -30,6 +52,7 @@ class MockWebSocket {
 
 describe('GamePage', () => {
   const dimensionsSpy = jest.spyOn(ReactNative, 'useWindowDimensions');
+  const resolveAssetSourceSpy = jest.spyOn(Image, 'resolveAssetSource');
 
   beforeEach(() => {
     dimensionsSpy.mockReturnValue({
@@ -38,6 +61,12 @@ describe('GamePage', () => {
       scale: 2,
       fontScale: 2,
     });
+    resolveAssetSourceSpy.mockReturnValue({
+      uri: 'https://example.com/mariokart-theme.mp3',
+      width: 1,
+      height: 1,
+      scale: 1,
+    });
     globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
     globalThis.requestAnimationFrame = jest.fn(() => 1);
     globalThis.cancelAnimationFrame = jest.fn();
@@ -45,6 +74,7 @@ describe('GamePage', () => {
 
   afterAll(() => {
     dimensionsSpy.mockRestore();
+    resolveAssetSourceSpy.mockRestore();
   });
 
   test('renders the projected scene and keeps the local kart size fixed', async () => {

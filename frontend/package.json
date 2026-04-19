@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "android": "react-native run-android",
-    "ios": "react-native run-ios",
+    "ios": "react-native run-ios --terminal /System/Applications/Utilities/Terminal.app",
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest"
@@ -17,6 +17,7 @@
     "react-native": "0.85.1",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.24.0",
+    "react-native-sound": "^0.13.0",
     "react-native-svg": "^15.15.4",
     "react-navigation": "^5.0.0"
   },

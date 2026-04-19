@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
+  Image,
   Platform,
   Pressable,
   StatusBar,
@@ -8,6 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import Sound from 'react-native-sound';
 
 type HomePageProps = {
   navigation: {
@@ -15,12 +17,63 @@ type HomePageProps = {
   };
 };
 
+const HOME_THEME_ASSET = require('../assets/sounds/mariobros-theme.mp3');
+const HOME_THEME_VOLUME = 0.55;
+
 export const HomePage = ({ navigation }: HomePageProps) => {
   const { width, height } = useWindowDimensions();
+  const themeSoundRef = useRef<Sound | null>(null);
   const buttonWidth = Math.min(width - 48, 320);
   const cloudOffset = Math.max(18, width * 0.08);
   const hillWidth = Math.min(220, width * 0.42);
   const hillHeight = Math.min(140, height * 0.16);
+
+  const stopThemeSound = () => {
+    const currentThemeSound = themeSoundRef.current;
+    themeSoundRef.current = null;
+    currentThemeSound?.stop();
+    currentThemeSound?.release();
+  };
+
+  useEffect(() => {
+    Sound.setCategory('Playback');
+    const homeThemeUri = Image.resolveAssetSource(HOME_THEME_ASSET)?.uri;
+
+    if (!homeThemeUri) {
+      console.warn('Failed to resolve home theme asset');
+      return;
+    }
+
+    let isMounted = true;
+    const themeSound = new Sound(homeThemeUri, error => {
+      if (error) {
+        console.warn('Failed to load home theme', error);
+        return;
+      }
+
+      setTimeout(() => {
+        if (!isMounted) {
+          themeSound.release();
+          return;
+        }
+
+        themeSound.setVolume(HOME_THEME_VOLUME);
+        themeSound.setNumberOfLoops(-1);
+        themeSound.play(success => {
+          if (!success) {
+            console.warn('Home theme playback ended unexpectedly');
+          }
+        });
+      }, 0);
+    });
+
+    themeSoundRef.current = themeSound;
+
+    return () => {
+      isMounted = false;
+      stopThemeSound();
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -58,7 +111,10 @@ export const HomePage = ({ navigation }: HomePageProps) => {
         <Pressable
           accessibilityRole="button"
           testID="start-button"
-          onPress={() => navigation.navigate('Game')}
+          onPress={() => {
+            stopThemeSound();
+            navigation.navigate('Game');
+          }}
           style={({ pressed }) => [
             styles.button,
             { width: buttonWidth },

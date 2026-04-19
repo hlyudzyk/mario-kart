@@ -7,6 +7,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import Sound from 'react-native-sound';
 import { Kart } from '../components/Kart';
 import { RoadsideTreesLayer } from '../components/RoadsideTreesLayer';
 import { TrackLines } from '../components/TrackLines';
@@ -29,6 +30,22 @@ type Coin = {
   id: number;
   x: number;
   y: number;
+};
+
+type Particle = {
+  id: number;
+  left: number;
+  top: number;
+  size: number;
+  opacity: number;
+  velocityX: number;
+  velocityY: number;
+};
+
+type MarioPose = {
+  translateX: number;
+  translateY: number;
+  rotateDeg: number;
 };
 
 const CAR_SKINS = [
@@ -57,10 +74,29 @@ const KART_Y_OFFSET = 48;
 const TREE_ASSET = require('../assets/tree.png');
 const COIN_ASSET = require('../assets/coin.png');
 const MARIO_ASSET = require('../assets/mario_kart_models_back/mario-back.png');
+const MARIO_THEME_ASSET = require('../assets/sounds/mariokart-theme.mp3');
+const COIN_SOUND_ASSET = require('../assets/sounds/coin.mp3');
 const COIN_SPEED_PER_MS = 0.0006;
 const COIN_SPAWN_INTERVAL_MS = 1500;
 const COIN_COMMIT_INTERVAL_MS = 33;
 const WORLD_TOP_INSET = 132;
+const PARTICLE_MIN_COUNT = 4;
+const PARTICLE_MAX_COUNT = 6;
+const PARTICLE_SPAWN_INTERVAL_MS = 55;
+const PARTICLE_MIN_SIZE = 7;
+const PARTICLE_MAX_SIZE = 14;
+const PARTICLE_GROWTH_PER_MS = 0.014;
+const PARTICLE_FADE_PER_MS = 0.0024;
+const PARTICLE_BASE_COLOR = '#fff3a3';
+const PARTICLE_ACCENT_COLOR = '#ff9f43';
+const MARIO_TWEAK_X_AMPLITUDE = 1.8;
+const MARIO_TWEAK_X_JITTER = 0.8;
+const MARIO_TWEAK_Y_AMPLITUDE = 0.45;
+const MARIO_TWEAK_ROTATION_DEG = 0.75;
+const MARIO_TWEAK_SWAY_MS = 92;
+const MARIO_TWEAK_JITTER_MS = 41;
+const MARIO_TWEAK_BOB_MS = 150;
+const MARIO_TWEAK_ROTATE_MS = 84;
 
 const hashId = (id: string) => {
   let hash = 0;
@@ -89,12 +125,22 @@ type GamePageProps = {
 export const GamePage = ({ navigation }: GamePageProps) => {
   const { width, height } = useWindowDimensions();
   const socketRef = useRef<WebSocket | null>(null);
+  const themeSoundRef = useRef<Sound | null>(null);
+  const coinSoundRef = useRef<Sound | null>(null);
   const lastCoinFrameTimeRef = useRef<number | null>(null);
   const visibleCoinsRef = useRef<Coin[]>([]);
+  const visibleParticlesRef = useRef<Particle[]>([]);
   const [cars, setCars] = useState<RemoteCar[]>([]);
   const [coins, setCoins] = useState<Coin[]>([]);
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const [marioPose, setMarioPose] = useState<MarioPose>({
+    translateX: 0,
+    translateY: 0,
+    rotateDeg: 0,
+  });
   const [score, setScore] = useState(0);
   const coinIdCounter = useRef(0);
+  const particleIdCounter = useRef(0);
 
   const bottomRoadWidth = width * ROAD_BOTTOM_WIDTH_RATIO;
   const topRoadWidth = width * ROAD_TOP_WIDTH_RATIO;
@@ -120,6 +166,10 @@ export const GamePage = ({ navigation }: GamePageProps) => {
     return Math.max(bounds.left + 8, Math.min(bounds.right - size - 8, left));
   };
 
+  const marioAnchorY = marioTop + KART_SIZE * 0.82;
+  const marioCenterX = projectRoadX(MARIO_ROAD_X, marioAnchorY, perspectiveRoad);
+  const marioLeft = clampSpriteLeft(marioCenterX - KART_SIZE / 2, marioAnchorY, KART_SIZE);
+
   const getProjectedSprite = (
     roadX: number,
     worldY: number,
@@ -143,9 +193,97 @@ export const GamePage = ({ navigation }: GamePageProps) => {
     };
   };
 
+  const getMarioPose = (time: number): MarioPose => {
+    const sway = Math.sin(time / MARIO_TWEAK_SWAY_MS) * MARIO_TWEAK_X_AMPLITUDE;
+    const jitter = Math.sin(time / MARIO_TWEAK_JITTER_MS) * MARIO_TWEAK_X_JITTER;
+    const combinedX = sway + jitter;
+
+    return {
+      translateX: combinedX,
+      translateY: Math.abs(Math.cos(time / MARIO_TWEAK_BOB_MS)) * MARIO_TWEAK_Y_AMPLITUDE,
+      rotateDeg:
+        Math.sin(time / MARIO_TWEAK_ROTATE_MS) * MARIO_TWEAK_ROTATION_DEG +
+        (combinedX / (MARIO_TWEAK_X_AMPLITUDE + MARIO_TWEAK_X_JITTER)) * 0.2,
+    };
+  };
+
+  useEffect(() => {
+    Sound.setCategory('Playback');
+    const marioThemeUri = Image.resolveAssetSource(MARIO_THEME_ASSET)?.uri;
+
+    if (!marioThemeUri) {
+      console.warn('Failed to resolve mario theme asset');
+      return;
+    }
+
+    let isMounted = true;
+    const themeSound = new Sound(marioThemeUri, error => {
+      if (error) {
+        console.warn('Failed to load mario theme', error);
+        return;
+      }
+
+      setTimeout(() => {
+        if (!isMounted) {
+          themeSound.release();
+          return;
+        }
+
+        themeSound.setNumberOfLoops(-1);
+        themeSound.play(success => {
+          if (!success) {
+            console.warn('Mario theme playback ended unexpectedly');
+          }
+        });
+      }, 0);
+    });
+
+    themeSoundRef.current = themeSound;
+
+    return () => {
+      isMounted = false;
+      const currentThemeSound = themeSoundRef.current;
+      themeSoundRef.current = null;
+      currentThemeSound?.stop();
+      currentThemeSound?.release();
+    };
+  }, []);
+
+  useEffect(() => {
+    const coinSoundUri = Image.resolveAssetSource(COIN_SOUND_ASSET)?.uri;
+
+    if (!coinSoundUri) {
+      console.warn('Failed to resolve coin sound asset');
+      return;
+    }
+
+    let isMounted = true;
+    const coinSound = new Sound(coinSoundUri, error => {
+      if (error) {
+        console.warn('Failed to load coin sound', error);
+        return;
+      }
+
+      if (!isMounted) {
+        coinSound.release();
+      }
+    });
+
+    coinSoundRef.current = coinSound;
+
+    return () => {
+      isMounted = false;
+      const currentCoinSound = coinSoundRef.current;
+      coinSoundRef.current = null;
+      currentCoinSound?.stop();
+      currentCoinSound?.release();
+    };
+  }, []);
+
   useEffect(() => {
     let frame = 0;
     let lastCoinSpawn: number | null = null;
+    let lastParticleSpawn: number | null = null;
     let lastCommit: number | null = null;
 
     const animate = (time: number) => {
@@ -173,9 +311,44 @@ export const GamePage = ({ navigation }: GamePageProps) => {
         ];
       }
 
+      let previousParticles = visibleParticlesRef.current;
+
+      if (lastParticleSpawn === null) {
+        lastParticleSpawn = time;
+      }
+
+      if (
+        previousParticles.length < PARTICLE_MIN_COUNT ||
+        (previousParticles.length < PARTICLE_MAX_COUNT &&
+          time - lastParticleSpawn >= PARTICLE_SPAWN_INTERVAL_MS)
+      ) {
+        lastParticleSpawn = time;
+        const nextMarioPose = getMarioPose(time);
+        const rearCenterX = marioLeft + nextMarioPose.translateX + KART_SIZE * 0.5;
+        const rearTop = marioTop + nextMarioPose.translateY + KART_SIZE * 0.72;
+        const size =
+          PARTICLE_MIN_SIZE +
+          Math.random() * (PARTICLE_MAX_SIZE - PARTICLE_MIN_SIZE);
+
+        previousParticles = [
+          ...previousParticles,
+          {
+            id: particleIdCounter.current++,
+            left: rearCenterX + (Math.random() - 0.5) * 26 - size / 2,
+            top: rearTop + (Math.random() - 0.5) * 16,
+            size,
+            opacity: 0.72 + Math.random() * 0.22,
+            velocityX: (Math.random() - 0.5) * 0.11,
+            velocityY: 0.06 + Math.random() * 0.08,
+          },
+        ];
+      }
+
       let scoreAdded = 0;
+      const nextMarioPose = getMarioPose(time);
       const deltaY = delta * COIN_SPEED_PER_MS;
       const movedCoins: Coin[] = [];
+      const movedParticles: Particle[] = [];
 
       for (const coin of nextCoins) {
         const nextY = coin.y - deltaY;
@@ -193,16 +366,56 @@ export const GamePage = ({ navigation }: GamePageProps) => {
 
       visibleCoinsRef.current = movedCoins;
 
+      for (const particle of previousParticles) {
+        const nextOpacity = particle.opacity - delta * PARTICLE_FADE_PER_MS;
+
+        if (nextOpacity <= 0.03) {
+          continue;
+        }
+
+        const nextSize = particle.size + delta * PARTICLE_GROWTH_PER_MS;
+        const nextLeft = particle.left + particle.velocityX * delta;
+        const nextTop = particle.top + particle.velocityY * delta;
+
+        if (nextTop > height + 24) {
+          continue;
+        }
+
+        movedParticles.push({
+          ...particle,
+          left: nextLeft,
+          top: nextTop,
+          size: nextSize,
+          opacity: nextOpacity,
+        });
+      }
+
+      visibleParticlesRef.current = movedParticles;
+
       if (scoreAdded > 0) {
         setScore(currentScore => currentScore + scoreAdded);
+        const currentCoinSound = coinSoundRef.current;
+        currentCoinSound?.stop(() => {
+          currentCoinSound.setCurrentTime(0);
+          currentCoinSound.play(success => {
+            if (!success) {
+              console.warn('Coin sound playback ended unexpectedly');
+            }
+          });
+        });
       }
 
       if (
         (lastCommit === null || time - lastCommit >= COIN_COMMIT_INTERVAL_MS) &&
-        (movedCoins.length > 0 || previousCoins.length > 0)
+        (movedCoins.length > 0 ||
+          previousCoins.length > 0 ||
+          movedParticles.length > 0 ||
+          previousParticles.length > 0)
       ) {
         lastCommit = time;
         setCoins(movedCoins);
+        setParticles(movedParticles);
+        setMarioPose(nextMarioPose);
       }
 
       frame = requestAnimationFrame(animate);
@@ -213,12 +426,9 @@ export const GamePage = ({ navigation }: GamePageProps) => {
     return () => {
       cancelAnimationFrame(frame);
       lastCoinFrameTimeRef.current = null;
+      visibleParticlesRef.current = [];
     };
-  }, []);
-
-  const marioAnchorY = marioTop + KART_SIZE * 0.82;
-  const marioCenterX = projectRoadX(MARIO_ROAD_X, marioAnchorY, perspectiveRoad);
-  const marioLeft = clampSpriteLeft(marioCenterX - KART_SIZE / 2, marioAnchorY, KART_SIZE);
+  }, [height, marioLeft, marioTop]);
 
   useEffect(() => {
     const isTest = false;
@@ -305,6 +515,25 @@ export const GamePage = ({ navigation }: GamePageProps) => {
           source={TREE_ASSET}
         />
         <Scoreboard score={score} />
+        {particles.map(particle => (
+          <View
+            key={`particle-${particle.id}`}
+            pointerEvents="none"
+            style={[
+              styles.particle,
+              {
+                left: particle.left,
+                top: particle.top,
+                width: particle.size,
+                height: particle.size,
+                opacity: particle.opacity,
+                zIndex: 84,
+                backgroundColor:
+                  particle.id % 2 === 0 ? PARTICLE_BASE_COLOR : PARTICLE_ACCENT_COLOR,
+              },
+            ]}
+          />
+        ))}
         <Kart
           left={marioLeft}
           top={marioTop}
@@ -312,6 +541,13 @@ export const GamePage = ({ navigation }: GamePageProps) => {
           source={MARIO_ASSET}
           zIndex={90}
           testID="local-kart"
+          containerStyle={{
+            transform: [
+              { translateX: marioPose.translateX },
+              { translateY: marioPose.translateY },
+              { rotate: `${marioPose.rotateDeg}deg` },
+            ],
+          }}
         />
         {coins.map(coin => {
           const placement = getProjectedSprite(
@@ -433,5 +669,15 @@ const styles = StyleSheet.create({
   },
   sprite: {
     position: 'absolute',
+  },
+  particle: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    shadowColor: '#ffd166',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 6,
+    elevation: 3,
   },
 });

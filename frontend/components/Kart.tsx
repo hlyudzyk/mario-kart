@@ -1,5 +1,12 @@
 import React from 'react';
-import { Image, ImageSourcePropType, StyleSheet, View } from 'react-native';
+import {
+  Image,
+  ImageSourcePropType,
+  StyleProp,
+  StyleSheet,
+  View,
+  ViewStyle,
+} from 'react-native';
 
 export type KartProps = {
   left: number;
@@ -8,9 +15,18 @@ export type KartProps = {
   source: ImageSourcePropType;
   zIndex?: number;
   testID?: string;
+  containerStyle?: StyleProp<ViewStyle>;
 };
 
-export const Kart = ({ left, top, size, source, zIndex, testID }: KartProps) => {
+export const Kart = ({
+  left,
+  top,
+  size,
+  source,
+  zIndex,
+  testID,
+  containerStyle,
+}: KartProps) => {
   return (
     <View
       testID={testID}
@@ -23,6 +39,7 @@ export const Kart = ({ left, top, size, source, zIndex, testID }: KartProps) => 
           height: size,
           zIndex,
         },
+        containerStyle,
       ]}
     >
       <Image
