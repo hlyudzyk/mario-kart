@@ -53,6 +53,7 @@ const MARIO_ASSET = require('../assets/mario_kart_models_back/mario-back.png');
 const COIN_SPEED_PER_MS = 0.0006;
 const COIN_SPAWN_INTERVAL_MS = 1500;
 const COIN_COMMIT_INTERVAL_MS = 33;
+const WORLD_TOP_INSET = 132;
 
 const hashId = (id: string) => {
   let hash = 0;
@@ -94,6 +95,7 @@ export const GamePage = () => {
   );
   const marioTop = height - KART_SIZE - KART_Y_OFFSET;
   const verticalTravel = marioTop;
+  const worldTravelHeight = Math.max(0, verticalTravel - WORLD_TOP_INSET);
   const grassWidth = (width - bottomRoadWidth) / 2;
   const treeBaseWidth = Math.max(86, grassWidth * 1.25 + 42);
   const treeCount = Math.ceil(height / 150) + 3;
@@ -111,7 +113,7 @@ export const GamePage = () => {
     minScale: number,
     offsetSeed?: number,
   ) => {
-    const top = getScreenYForWorldY(worldY, verticalTravel);
+    const top = WORLD_TOP_INSET + getScreenYForWorldY(worldY, worldTravelHeight);
     const scale = getDepthScale(worldY, minScale, 1);
     const size = baseSize * scale;
     const anchorY = top + size * 0.8;
