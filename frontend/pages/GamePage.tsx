@@ -89,12 +89,8 @@ type GamePageProps = {
 export const GamePage = ({ navigation }: GamePageProps) => {
   const { width, height } = useWindowDimensions();
   const socketRef = useRef<WebSocket | null>(null);
-  const lastCoinFrameTimeRef = useRef<number | null>(null);
-  const visibleCoinsRef = useRef<Coin[]>([]);
   const [cars, setCars] = useState<RemoteCar[]>([]);
-  const [coins, setCoins] = useState<Coin[]>([]);
   const [score, setScore] = useState(0);
-  const coinIdCounter = useRef(0);
 
   const bottomRoadWidth = width * ROAD_BOTTOM_WIDTH_RATIO;
   const topRoadWidth = width * ROAD_TOP_WIDTH_RATIO;
@@ -142,81 +138,6 @@ export const GamePage = ({ navigation }: GamePageProps) => {
       zIndex: 20 + Math.round(scale * 30),
     };
   };
-
-  useEffect(() => {
-    let frame = 0;
-    let lastCoinSpawn: number | null = null;
-    let lastCommit: number | null = null;
-
-    const animate = (time: number) => {
-      const previousTime = lastCoinFrameTimeRef.current ?? time;
-      const delta = time - previousTime;
-      lastCoinFrameTimeRef.current = time;
-
-      if (lastCoinSpawn === null) {
-        lastCoinSpawn = time;
-      }
-
-      const previousCoins = visibleCoinsRef.current;
-      let nextCoins = previousCoins;
-
-      if (time - lastCoinSpawn >= COIN_SPAWN_INTERVAL_MS) {
-        lastCoinSpawn = time;
-        const spawnX = Math.random() > 0.5 ? LEFT_LANE_X : RIGHT_LANE_X;
-        nextCoins = [
-          ...nextCoins,
-          {
-            id: coinIdCounter.current++,
-            x: spawnX,
-            y: 1,
-          },
-        ];
-      }
-
-      let scoreAdded = 0;
-      const deltaY = delta * COIN_SPEED_PER_MS;
-      const movedCoins: Coin[] = [];
-
-      for (const coin of nextCoins) {
-        const nextY = coin.y - deltaY;
-        if (nextY < -0.12) {
-          continue;
-        }
-
-        // Mario is always at MARIO_ROAD_X (RIGHT_LANE_X) and y ~ 0.
-        // We consume coins that hit mario: y < 0.08 touches the kart border!
-        if (nextY > -0.12 && nextY < 0.08 && Math.abs(coin.x - MARIO_ROAD_X) < 0.2) {
-          scoreAdded += 1;
-          continue;
-        }
-
-        movedCoins.push({ ...coin, y: nextY });
-      }
-
-      visibleCoinsRef.current = movedCoins;
-
-      if (scoreAdded > 0) {
-        setScore(currentScore => currentScore + scoreAdded);
-      }
-
-      if (
-        (lastCommit === null || time - lastCommit >= COIN_COMMIT_INTERVAL_MS) &&
-        (movedCoins.length > 0 || previousCoins.length > 0)
-      ) {
-        lastCommit = time;
-        setCoins(movedCoins);
-      }
-
-      frame = requestAnimationFrame(animate);
-    };
-
-    frame = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(frame);
-      lastCoinFrameTimeRef.current = null;
-    };
-  }, []);
 
   const marioAnchorY = marioTop + KART_SIZE * 0.82;
   const marioCenterX = projectRoadX(MARIO_ROAD_X, marioAnchorY, perspectiveRoad);
@@ -315,34 +236,6 @@ export const GamePage = ({ navigation }: GamePageProps) => {
           zIndex={90}
           testID="local-kart"
         />
-        {coins.map(coin => {
-          const placement = getProjectedSprite(
-            coin.x,
-            coin.y,
-            COIN_SIZE,
-            0.42,
-            coin.id * 0.73,
-          );
-
-          return (
-            <Image
-              key={`coin-${coin.id}`}
-              testID={`coin-${coin.id}`}
-              source={COIN_ASSET}
-              style={[
-                styles.sprite,
-                {
-                  left: placement.left,
-                  top: placement.top,
-                  width: placement.size,
-                  height: placement.size,
-                  zIndex: placement.zIndex,
-                },
-              ]}
-              resizeMode="contain"
-            />
-          );
-        })}
         {cars.map((car, index) => {
           const roadX = Math.max(0.08, Math.min(0.92, car.x));
 
