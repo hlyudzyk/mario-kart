@@ -17,7 +17,7 @@ const ctx = canvas.getContext("2d");
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
-const ws = new WebSocket("ws://localhost:8000/wsTest");
+const ws = new WebSocket("ws://localhost:8000/ws");
 
 // -------------------------
 // GRID (now normalized)
@@ -56,19 +56,19 @@ function drawPlayer() {
 // POINTS (normalized mapping)
 // -------------------------
 function drawPoints(points) {
-    points.forEach(({ x, z, label }) => {
+    points.forEach(({ x, y, label }) => {
 
         // map [0,1] → screen
         const screenX = x * WIDTH;
-        const screenY = HEIGHT - z * HEIGHT;
+        const screenY = HEIGHT - y * HEIGHT;
 
         // clamp just in case
         if (screenY < 0 || screenY > HEIGHT) return;
 
         // color by distance (normalized now!)
         let color = "green";
-        if (z < 0.3) color = "red";
-        else if (z < 0.6) color = "orange";
+        if (y < 0.3) color = "red";
+        else if (y< 0.6) color = "orange";
 
         ctx.fillStyle = color;
 
