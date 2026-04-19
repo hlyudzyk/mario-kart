@@ -37,9 +37,6 @@ function drawGrid() {
     }
 }
 
-// -------------------------
-// PLAYER (center bottom)
-// -------------------------
 function drawPlayer() {
     const x = WIDTH / 2;
     const y = HEIGHT - 10;
@@ -52,9 +49,7 @@ function drawPlayer() {
     ctx.fillText("YOU", x - 15, y - 15);
 }
 
-// -------------------------
-// POINTS (normalized mapping)
-// -------------------------
+
 function drawPoints(points) {
     points.forEach(({ x, y, label }) => {
 
@@ -82,9 +77,6 @@ function drawPoints(points) {
     });
 }
 
-// -------------------------
-// RENDER LOOP
-// -------------------------
 ws.onmessage = (event) => {
     const points = JSON.parse(event.data);
 

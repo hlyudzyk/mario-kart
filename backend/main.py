@@ -1,48 +1,16 @@
 import asyncio
 import json
-import math
 import depthai as dai
 from fastapi import FastAPI, WebSocket
 import uvicorn
-from faker import build_payload, init_cars, update_cars
 
+from backend.constants import REQUEST_OUTPUT_HEIGHT, REQUEST_OUTPUT_WIDTH
+from backend.utils.kalman import update_kalman, prune_kalman
+from backend.utils.positioning import compute_position
+from faker import build_payload, init_cars, update_cars
 app = FastAPI()
 
 latest_detections = []
-
-
-def compute_position(det: dict) -> dict:
-    cx = (det["xmin"] + det["xmax"]) / 2
-    width = det["xmax"] - det["xmin"]
-    height = det["ymax"] - det["ymin"]
-
-    area = width * height
-    if area <= 0:
-        return None
-
-    # -------------------------
-    # X in [0, 1]
-    # -------------------------
-    x = cx
-
-    # -------------------------
-    # Y raw (distance proxy)
-    # -------------------------
-    y_raw = 1 / math.sqrt(area)
-
-    # -------------------------
-    # Normalize Y → [0, 1]
-    # -------------------------
-    Y_MIN = 1.0  # tune this
-    Y_MAX = 8.0  # tune this
-
-    y = (y_raw - Y_MIN) / (Y_MAX - Y_MIN)
-    y = max(0.0, min(1.0, y))
-
-    return {
-        "x": round(x, 3),
-        "y": round(y, 3)
-    }
 
 async def oak_loop():
     global latest_detections
@@ -52,35 +20,29 @@ async def oak_loop():
             f"yolov6_nano_r2_coco.{device.getPlatform().name}.yaml"
         )
         nn_archive = dai.NNArchive(dai.getModelFromZoo(model_description))
-
         cameraNode = pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
         detectionNetwork = pipeline.create(dai.node.DetectionNetwork)
-
-        cameraNode.requestOutput((512, 288), dai.ImgFrame.Type.BGR888p).link(
-            detectionNetwork.input
-        )
+        cameraNode.requestOutput(
+            (REQUEST_OUTPUT_WIDTH, REQUEST_OUTPUT_HEIGHT), dai.ImgFrame.Type.BGR888p
+        ).link(detectionNetwork.input)
         detectionNetwork.setNNArchive(nn_archive, numShaves=4)
 
-         # --- ADD: ObjectTracker node ---
         objectTracker = pipeline.create(dai.node.ObjectTracker)
-        objectTracker.setDetectionLabelsToTrack([0, 2])  # 0=person, 2=car in COCO
+        objectTracker.setDetectionLabelsToTrack([0, 2])
         objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
         objectTracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.UNIQUE_ID)
-
-
-        # Wire NN → tracker (two links required)
         detectionNetwork.passthrough.link(objectTracker.inputTrackerFrame)
         detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
         detectionNetwork.out.link(objectTracker.inputDetections)
-        
         trackerOut = objectTracker.out.createOutputQueue()
-        pipeline.start()
 
+        pipeline.start()
         while pipeline.isRunning():
             tracklets_msg = trackerOut.get()
             points = []
+            active_ids = set()
+
             for t in tracklets_msg.tracklets:
-                # Skip lost objects — they're gone from the scene
                 if t.status == dai.Tracklet.TrackingStatus.LOST:
                     continue
 
@@ -99,13 +61,24 @@ async def oak_loop():
                     "ymax": float(t.roi.y + t.roi.height),
                 }
                 pos = compute_position(raw)
-                if pos:
-                    pos["label"] = label_str
-                    pos["id"] = t.id
-                    points.append(pos)
+                if not pos:
+                    continue
 
+                sx, sy = update_kalman(t.id, pos["x"], pos["y"])
+                sx = max(0.0, min(1.0, sx))
+                sy = max(0.0, min(1.0, sy))
+
+                active_ids.add(t.id)
+                points.append({
+                    "id": t.id,
+                    "label": label_str,
+                    "x": round(sx, 3),
+                    "y": round(sy, 3),
+                })
+
+            prune_kalman(active_ids)
             latest_detections = points
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.03)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -128,7 +101,7 @@ async def websocket_test_endpoint(websocket: WebSocket):
             cars = update_cars(cars)
             payload = build_payload(cars)
             await websocket.send_text(payload)
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.03)
     except Exception as e:
         print("WebSocket test closed:", e)
 
