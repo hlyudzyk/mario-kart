@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Kart } from '../components/Kart';
-import {
-  TrackLines,
-  roadLineWidth,
-  centerDashHeight,
-  centerDashGap,
-} from '../components/TrackLines';
-import { Tree } from '../components/Tree';
+import { RoadsideTreesLayer } from '../components/RoadsideTreesLayer';
+import { TrackLines } from '../components/TrackLines';
 import { Scoreboard } from '../components/Scoreboard';
+import {
+  getDepthScale,
+  getRoadBoundsAtScreenY,
+  getScreenYForWorldY,
+  projectRoadX,
+} from '../utils/gameProjection';
 
 type RemoteCar = {
   x: number;
@@ -38,100 +39,155 @@ const CAR_SKINS = [
   },
 ] as const;
 
+const ROAD_BOTTOM_WIDTH_RATIO = 0.9;
+const ROAD_TOP_WIDTH_RATIO = 0.34;
+const LEFT_LANE_X = 0.28;
+const RIGHT_LANE_X = 0.72;
+const MARIO_ROAD_X = RIGHT_LANE_X;
+const KART_SIZE = 126;
+const COIN_SIZE = 52;
+const KART_Y_OFFSET = 48;
+const TREE_ASSET = require('../assets/tree.png');
+const COIN_ASSET = require('../assets/coin.png');
+const MARIO_ASSET = require('../assets/mario_kart_models_back/mario-back.png');
+const COIN_SPEED_PER_MS = 0.0006;
+const COIN_SPAWN_INTERVAL_MS = 1500;
+const COIN_COMMIT_INTERVAL_MS = 33;
+
 const hashId = (id: string) => {
   let hash = 0;
 
   for (let i = 0; i < id.length; i += 1) {
-    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+    hash = (hash * 31 + id.charCodeAt(i)) % 2147483647;
   }
 
-  return Math.abs(hash);
+  return hash;
+};
+
+const getStaticLateralOffset = (seed: number, amplitude: number) => {
+  return (
+    Math.sin(seed * 4.37) * amplitude * 0.6 +
+    Math.sin(seed * 1.91 + 1.4) * amplitude * 0.3
+  );
 };
 
 export const GamePage = () => {
   const { width, height } = useWindowDimensions();
   const socketRef = useRef<WebSocket | null>(null);
-  const roadScrollRef = useRef(0);
-  const lastFrameTimeRef = useRef<number | null>(null);
+  const lastCoinFrameTimeRef = useRef<number | null>(null);
+  const visibleCoinsRef = useRef<Coin[]>([]);
   const [cars, setCars] = useState<RemoteCar[]>([]);
   const [coins, setCoins] = useState<Coin[]>([]);
   const [score, setScore] = useState(0);
   const coinIdCounter = useRef(0);
-  const [wobbleTick, setWobbleTick] = useState(0);
-  const [roadScroll, setRoadScroll] = useState(0);
 
-  const sideBorderWidth = width * 0.1;
-  const centerLineOffset = (width - sideBorderWidth * 2 - roadLineWidth) / 2;
-  const dashCount = Math.ceil(height / (centerDashHeight + centerDashGap));
-
-  const trackWidth = width - sideBorderWidth * 2;
-  const kartSize = 110;
-  const kartYOffset = 60;
-  const marioX = trackWidth * 0.75 - kartSize / 2;
-  const marioY = height - kartSize - kartYOffset;
-  const laneWidth = (trackWidth - roadLineWidth) / 2;
-  const leftLaneCenter = sideBorderWidth + laneWidth / 2 - kartSize + 10;
-  const rightLaneCenter =
-    sideBorderWidth + laneWidth + roadLineWidth + laneWidth / 2 - kartSize + 10;
-  const verticalTravel = height - kartSize - kartYOffset;
-  const treeBaseWidth = sideBorderWidth + 40;
+  const bottomRoadWidth = width * ROAD_BOTTOM_WIDTH_RATIO;
+  const topRoadWidth = width * ROAD_TOP_WIDTH_RATIO;
+  const perspectiveRoad = useMemo(
+    () => ({
+      viewportWidth: width,
+      viewportHeight: height,
+      topRoadWidth,
+      bottomRoadWidth,
+    }),
+    [bottomRoadWidth, height, topRoadWidth, width],
+  );
+  const marioTop = height - KART_SIZE - KART_Y_OFFSET;
+  const verticalTravel = marioTop;
+  const grassWidth = (width - bottomRoadWidth) / 2;
+  const treeBaseWidth = Math.max(86, grassWidth * 1.25 + 42);
   const treeCount = Math.ceil(height / 150) + 3;
-  const roadLeftBound = sideBorderWidth + 4;
-  const roadRightBound = width - sideBorderWidth - kartSize - 4;
-  const laneWobble = 7;
+
+  const clampSpriteLeft = (left: number, anchorY: number, size: number) => {
+    const bounds = getRoadBoundsAtScreenY(anchorY, perspectiveRoad);
+
+    return Math.max(bounds.left + 8, Math.min(bounds.right - size - 8, left));
+  };
+
+  const getProjectedSprite = (
+    roadX: number,
+    worldY: number,
+    baseSize: number,
+    minScale: number,
+    offsetSeed?: number,
+  ) => {
+    const top = getScreenYForWorldY(worldY, verticalTravel);
+    const scale = getDepthScale(worldY, minScale, 1);
+    const size = baseSize * scale;
+    const anchorY = top + size * 0.8;
+    const centerX = projectRoadX(roadX, anchorY, perspectiveRoad);
+    const lateralOffset =
+      offsetSeed === undefined ? 0 : getStaticLateralOffset(offsetSeed, 9) * scale;
+
+    return {
+      top,
+      size,
+      left: clampSpriteLeft(centerX - size / 2 + lateralOffset, anchorY, size),
+      zIndex: 20 + Math.round(scale * 30),
+    };
+  };
 
   useEffect(() => {
     let frame = 0;
-    let lastCoinSpawn = 0;
+    let lastCoinSpawn: number | null = null;
+    let lastCommit: number | null = null;
 
     const animate = (time: number) => {
-      const previousTime = lastFrameTimeRef.current ?? time;
+      const previousTime = lastCoinFrameTimeRef.current ?? time;
       const delta = time - previousTime;
-      lastFrameTimeRef.current = time;
+      lastCoinFrameTimeRef.current = time;
 
-      setWobbleTick(current => current + 1);
-      roadScrollRef.current += delta * 0.18;
-      setRoadScroll(roadScrollRef.current);
-
-      if (time - lastCoinSpawn > 1500) {
+      if (lastCoinSpawn === null) {
         lastCoinSpawn = time;
-        const spawnX = Math.random() > 0.5 ? 0.2 : 0.8;
-        setCoins(prev => [
-          ...prev,
+      }
+
+      const previousCoins = visibleCoinsRef.current;
+      let nextCoins = previousCoins;
+
+      if (time - lastCoinSpawn >= COIN_SPAWN_INTERVAL_MS) {
+        lastCoinSpawn = time;
+        const spawnX = Math.random() > 0.5 ? LEFT_LANE_X : RIGHT_LANE_X;
+        nextCoins = [
+          ...nextCoins,
           {
             id: coinIdCounter.current++,
             x: spawnX,
-            y: 1.0,
+            y: 1,
           },
-        ]);
+        ];
       }
 
-      setCoins(prevCoins => {
-        let scAdded = 0;
-        const nextCoins: Coin[] = [];
+      let scoreAdded = 0;
+      const deltaY = delta * COIN_SPEED_PER_MS;
+      const movedCoins: Coin[] = [];
 
-        for (const coin of prevCoins) {
-          const nextY = coin.y - 0.01;
-          if (nextY < -0.1) continue;
-
-          // Simple collision: mario is near y=0, x=0.75
-          if (nextY > -0.05 && nextY < 0.15) {
-            const marioNormX = 0.75;
-            if (Math.abs(coin.x - marioNormX) < 0.4) {
-              // Increased hit box
-              scAdded++;
-              continue; // consume coin
-            }
-          }
-          nextCoins.push({ ...coin, y: nextY });
+      for (const coin of nextCoins) {
+        const nextY = coin.y - deltaY;
+        if (nextY < -0.12) {
+          continue;
         }
 
-        if (scAdded > 0) {
-          setScore(s => s + scAdded);
+        if (nextY > -0.05 && nextY < 0.15 && Math.abs(coin.x - MARIO_ROAD_X) < 0.2) {
+          scoreAdded += 1;
+          continue;
         }
 
-        return nextCoins;
-      });
+        movedCoins.push({ ...coin, y: nextY });
+      }
+
+      visibleCoinsRef.current = movedCoins;
+
+      if (scoreAdded > 0) {
+        setScore(currentScore => currentScore + scoreAdded);
+      }
+
+      if (
+        (lastCommit === null || time - lastCommit >= COIN_COMMIT_INTERVAL_MS) &&
+        (movedCoins.length > 0 || previousCoins.length > 0)
+      ) {
+        lastCommit = time;
+        setCoins(movedCoins);
+      }
 
       frame = requestAnimationFrame(animate);
     };
@@ -140,42 +196,17 @@ export const GamePage = () => {
 
     return () => {
       cancelAnimationFrame(frame);
-      lastFrameTimeRef.current = null;
+      lastCoinFrameTimeRef.current = null;
     };
   }, []);
 
-  const wobbleX = (seed: number, intensity = laneWobble) =>
-    Math.sin(wobbleTick * 0.08 + seed) * intensity +
-    Math.sin(wobbleTick * 0.21 + seed * 1.7) * (intensity * 0.35);
-
-  const clampLeft = (left: number) =>
-    Math.max(roadLeftBound, Math.min(roadRightBound, left));
-
-  const leftTrees = useMemo(
-    () =>
-      Array.from({ length: treeCount }).map((_, i) => ({
-        top: i * 150 + (Math.random() * 200 - 100),
-        scale: 0.8 + Math.random() * 0.5,
-        offsetX: (Math.random() - 0.5) * (sideBorderWidth * 0.6),
-      })),
-    [treeCount, sideBorderWidth],
-  );
-
-  const rightTrees = useMemo(
-    () =>
-      Array.from({ length: treeCount }).map((_, i) => ({
-        top: i * 150 + (Math.random() * 200 - 100),
-        scale: 0.8 + Math.random() * 0.5,
-        offsetX: (Math.random() - 0.5) * (sideBorderWidth * 0.6),
-      })),
-    [treeCount, sideBorderWidth],
-  );
+  const marioAnchorY = marioTop + KART_SIZE * 0.82;
+  const marioCenterX = projectRoadX(MARIO_ROAD_X, marioAnchorY, perspectiveRoad);
+  const marioLeft = clampSpriteLeft(marioCenterX - KART_SIZE / 2, marioAnchorY, KART_SIZE);
 
   useEffect(() => {
-    const IS_TEST = false;
-    const ws = new WebSocket(
-      `ws://localhost:8000/${IS_TEST ? 'wsText' : 'ws'}`,
-    );
+    const isTest = false;
+    const ws = new WebSocket(`ws://localhost:8000/${isTest ? 'wsText' : 'ws'}`);
     socketRef.current = ws;
 
     ws.onopen = () => {
@@ -220,122 +251,118 @@ export const GamePage = () => {
       socketRef.current = null;
     };
   }, []);
+
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          borderLeftWidth: sideBorderWidth,
-          borderRightWidth: sideBorderWidth,
-        },
-      ]}
-    >
+    <View style={styles.container}>
       <View style={styles.gameContainer}>
+        <TrackLines
+          viewportWidth={width}
+          viewportHeight={height}
+          topRoadWidth={topRoadWidth}
+          bottomRoadWidth={bottomRoadWidth}
+        />
+        <RoadsideTreesLayer
+          viewportWidth={width}
+          viewportHeight={height}
+          topRoadWidth={topRoadWidth}
+          bottomRoadWidth={bottomRoadWidth}
+          treeBaseWidth={treeBaseWidth}
+          treeCount={treeCount}
+          source={TREE_ASSET}
+        />
         <Scoreboard score={score} />
-        {leftTrees.map((tree, index) => (
-          <Tree
-            key={`left-tree-${index}`}
-            tree={tree}
-            sideBorderWidth={sideBorderWidth}
-            treeBaseWidth={treeBaseWidth}
-            scrollOffset={roadScroll}
-            viewportHeight={height}
-            side="left"
-            source={require('../assets/tree.png')}
-          />
-        ))}
-        {rightTrees.map((tree, index) => (
-          <Tree
-            key={`right-tree-${index}`}
-            tree={tree}
-            sideBorderWidth={sideBorderWidth}
-            treeBaseWidth={treeBaseWidth}
-            scrollOffset={roadScroll}
-            viewportHeight={height}
-            side="right"
-            source={require('../assets/tree.png')}
-          />
-        ))}
         <Kart
-          left={clampLeft(marioX + wobbleX(0, 4))}
-          top={marioY}
-          size={kartSize}
-          source={require('../assets/mario_kart_models_back/mario-back.png')}
+          left={marioLeft}
+          top={marioTop}
+          size={KART_SIZE}
+          source={MARIO_ASSET}
+          zIndex={90}
+          testID="local-kart"
         />
         {coins.map(coin => {
-          const left =
-            clampLeft(
-              (coin.x < 0.5 ? leftLaneCenter : rightLaneCenter) +
-                wobbleX(coin.id * 10 + coin.y * 10),
-            ) +
-            kartSize / 4;
-          const top = Math.max(0, verticalTravel * (1 - coin.y));
+          const placement = getProjectedSprite(
+            coin.x,
+            coin.y,
+            COIN_SIZE,
+            0.42,
+            coin.id * 0.73,
+          );
 
           return (
             <Image
               key={`coin-${coin.id}`}
-              source={require('../assets/coin.png')}
-              style={{
-                position: 'absolute',
-                left,
-                top,
-                width: 50,
-                height: 50,
-                zIndex: 20,
-              }}
+              testID={`coin-${coin.id}`}
+              source={COIN_ASSET}
+              style={[
+                styles.sprite,
+                {
+                  left: placement.left,
+                  top: placement.top,
+                  width: placement.size,
+                  height: placement.size,
+                  zIndex: placement.zIndex,
+                },
+              ]}
               resizeMode="contain"
             />
           );
         })}
         {cars.map((car, index) => {
+          const roadX = Math.max(0.08, Math.min(0.92, car.x));
+
           if (car.label === 'person') {
-            const coinSize = 50;
-            const left = clampLeft(
-              sideBorderWidth + car.x * trackWidth - coinSize / 2,
+            const placement = getProjectedSprite(
+              roadX,
+              car.y,
+              COIN_SIZE,
+              0.42,
+              index + hashId(car.id) * 0.01,
             );
-            const top = Math.max(0, verticalTravel * (1 - car.y));
 
             return (
               <Image
                 key={`${index}-${car.id}-${car.x}-${car.y}`}
-                source={require('../assets/coin.png')}
-                style={{
-                  position: 'absolute',
-                  left,
-                  top,
-                  width: coinSize,
-                  height: coinSize,
-                  zIndex: 20,
-                }}
+                testID={`person-${car.id}`}
+                source={COIN_ASSET}
+                style={[
+                  styles.sprite,
+                  {
+                    left: placement.left,
+                    top: placement.top,
+                    width: placement.size,
+                    height: placement.size,
+                    zIndex: placement.zIndex,
+                  },
+                ]}
                 resizeMode="contain"
               />
             );
           }
 
-          const left = clampLeft(
-            (car.x < 0.5 ? leftLaneCenter : rightLaneCenter) +
-              wobbleX(index + car.y * 10),
+          const placement = getProjectedSprite(
+            roadX,
+            car.y,
+            KART_SIZE,
+            0.46,
+            index + hashId(car.id) * 0.01,
           );
-          const top = Math.max(0, verticalTravel * (1 - car.y));
           const skinIndex = hashId(car.id) % CAR_SKINS.length;
-          const source = car.x < 0.5 ? CAR_SKINS[skinIndex].front : CAR_SKINS[skinIndex].back;
+          const source =
+            roadX < 0.5 ? CAR_SKINS[skinIndex].front : CAR_SKINS[skinIndex].back;
 
           return (
             <Kart
-              key={`${index}-${car.x}-${car.y}`}
-              left={left}
-              top={top}
-              size={kartSize}
+              key={`${car.id}-${car.x}-${car.y}`}
+              left={placement.left}
+              top={placement.top}
+              size={placement.size}
               source={source}
+              zIndex={placement.zIndex}
+              testID={`remote-kart-${car.id}`}
             />
           );
         })}
       </View>
-      <TrackLines
-        centerLineOffset={centerLineOffset}
-        dashCount={dashCount}
-        scrollOffset={roadScroll}
-      />
     </View>
   );
 };
@@ -343,10 +370,13 @@ export const GamePage = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111',
-    borderColor: 'green',
+    backgroundColor: '#2f8f42',
   },
   gameContainer: {
     flex: 1,
+    overflow: 'hidden',
+  },
+  sprite: {
+    position: 'absolute',
   },
 });
