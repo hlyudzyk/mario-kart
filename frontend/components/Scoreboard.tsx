@@ -16,7 +16,7 @@ export const Scoreboard = ({ score }: ScoreboardProps) => {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    top: 40, // Top of the screen, below notch
+    top: 74,
     left: 0,
     right: 0,
     alignItems: "center",

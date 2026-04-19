@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, StyleSheet, View, useWindowDimensions } from 'react-native';
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Kart } from '../components/Kart';
 import { RoadsideTreesLayer } from '../components/RoadsideTreesLayer';
 import { TrackLines } from '../components/TrackLines';
@@ -72,7 +79,14 @@ const getStaticLateralOffset = (seed: number, amplitude: number) => {
   );
 };
 
-export const GamePage = () => {
+type GamePageProps = {
+  navigation?: {
+    goBack?: () => void;
+    navigate?: (screen: string) => void;
+  };
+};
+
+export const GamePage = ({ navigation }: GamePageProps) => {
   const { width, height } = useWindowDimensions();
   const socketRef = useRef<WebSocket | null>(null);
   const lastCoinFrameTimeRef = useRef<number | null>(null);
@@ -257,6 +271,24 @@ export const GamePage = () => {
   return (
     <View style={styles.container}>
       <View style={styles.gameContainer}>
+        <Pressable
+          accessibilityRole="button"
+          testID="back-button"
+          onPress={() => {
+            if (navigation?.goBack) {
+              navigation.goBack();
+              return;
+            }
+
+            navigation?.navigate?.('Home');
+          }}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && styles.backButtonPressed,
+          ]}
+        >
+          <Text style={styles.backButtonText}>{'< Back'}</Text>
+        </Pressable>
         <TrackLines
           viewportWidth={width}
           viewportHeight={height}
@@ -377,6 +409,27 @@ const styles = StyleSheet.create({
   gameContainer: {
     flex: 1,
     overflow: 'hidden',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 22,
+    left: 18,
+    zIndex: 120,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  backButtonPressed: {
+    opacity: 0.7,
+    transform: [{ translateY: 2 }],
+  },
+  backButtonText: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
   },
   sprite: {
     position: 'absolute',
