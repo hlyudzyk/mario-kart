@@ -77,7 +77,7 @@ const MARIO_ASSET = require('../assets/mario_kart_models_back/mario-back.png');
 const MARIO_THEME_ASSET = require('../assets/sounds/mariokart-theme.mp3');
 const COIN_SOUND_ASSET = require('../assets/sounds/coin.mp3');
 const COIN_SPEED_PER_MS = 0.0006;
-const COIN_SPAWN_INTERVAL_MS = 1500;
+const COIN_SPAWN_INTERVAL_MS = 4000;
 const COIN_COMMIT_INTERVAL_MS = 33;
 const WORLD_TOP_INSET = 132;
 const PARTICLE_MIN_COUNT = 4;
@@ -125,11 +125,7 @@ type GamePageProps = {
 export const GamePage = ({ navigation }: GamePageProps) => {
   const { width, height } = useWindowDimensions();
   const socketRef = useRef<WebSocket | null>(null);
-  const themeSoundRef = useRef<Sound | null>(null);
-  const coinSoundRef = useRef<Sound | null>(null);
-  const lastCoinFrameTimeRef = useRef<number | null>(null);
-  const visibleCoinsRef = useRef<Coin[]>([]);
-  const visibleParticlesRef = useRef<Particle[]>([]);
+  const collectedRef = useRef<Set<string>>(new Set());
   const [cars, setCars] = useState<RemoteCar[]>([]);
   const [coins, setCoins] = useState<Coin[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
@@ -188,7 +184,7 @@ export const GamePage = ({ navigation }: GamePageProps) => {
     return {
       top,
       size,
-      left: clampSpriteLeft(centerX - size / 2 + lateralOffset, anchorY, size),
+      left: centerX - size / 2 + lateralOffset,
       zIndex: 20 + Math.round(scale * 30),
     };
   };
@@ -446,23 +442,52 @@ export const GamePage = ({ navigation }: GamePageProps) => {
           return;
         }
 
-        setCars(
-          nextCars
-            .filter(
-              (car): car is RemoteCar =>
-                car &&
-                typeof car.x === 'number' &&
-                typeof car.y === 'number' &&
-                typeof car.label === 'string' &&
-                (typeof car.id === 'string' || typeof car.id === 'number'),
-            )
-            .map(car => ({
-              x: Math.max(0, Math.min(1, car.x)),
-              y: Math.max(0, Math.min(1, car.y)),
-              label: car.label,
-              id: String(car.id),
-            })),
-        );
+        const parsed: RemoteCar[] = nextCars
+          .filter(
+            (car): car is RemoteCar =>
+              car &&
+              typeof car.x === 'number' &&
+              typeof car.y === 'number' &&
+              typeof car.label === 'string' &&
+              (typeof car.id === 'string' || typeof car.id === 'number'),
+          )
+          .map(car => ({
+            x: Math.max(0, Math.min(1, car.x)),
+            y: Math.max(0, Math.min(1, car.y)),
+            label: car.label,
+            id: String(car.id),
+          }));
+
+        // Clean up collected IDs for objects no longer tracked
+        const activeIds = new Set(parsed.map(c => c.id));
+        for (const id of collectedRef.current) {
+          if (!activeIds.has(id)) {
+            collectedRef.current.delete(id);
+          }
+        }
+
+        // Count coins entering Mario's collection zone for the first time
+        let newCollections = 0;
+        for (const car of parsed) {
+          if (car.label === 'person') {
+            const roadX = Math.max(0.08, Math.min(0.92, car.x));
+            if (
+              car.y < 0.08 &&
+              car.y > -0.12 &&
+              Math.abs(roadX - MARIO_ROAD_X) < 0.2 &&
+              !collectedRef.current.has(car.id)
+            ) {
+              collectedRef.current.add(car.id);
+              newCollections++;
+            }
+          }
+        }
+
+        if (newCollections > 0) {
+          setScore(prev => prev + newCollections);
+        }
+
+        setCars(parsed);
       } catch (error) {
         console.warn('Failed to parse websocket payload', error);
       }
@@ -549,38 +574,15 @@ export const GamePage = ({ navigation }: GamePageProps) => {
             ],
           }}
         />
-        {coins.map(coin => {
-          const placement = getProjectedSprite(
-            coin.x,
-            coin.y,
-            COIN_SIZE,
-            0.42,
-            coin.id * 0.73,
-          );
-
-          return (
-            <Image
-              key={`coin-${coin.id}`}
-              testID={`coin-${coin.id}`}
-              source={COIN_ASSET}
-              style={[
-                styles.sprite,
-                {
-                  left: placement.left,
-                  top: placement.top,
-                  width: placement.size,
-                  height: placement.size,
-                  zIndex: placement.zIndex,
-                },
-              ]}
-              resizeMode="contain"
-            />
-          );
-        })}
         {cars.map((car, index) => {
           const roadX = Math.max(0.08, Math.min(0.92, car.x));
 
           if (car.label === 'person') {
+            // Hide camera "coins" if they hit the boundary of the character
+            if (car.y < 0.08 && car.y > -0.12 && Math.abs(roadX - MARIO_ROAD_X) < 0.2) {
+              return null;
+            }
+
             const placement = getProjectedSprite(
               roadX,
               car.y,

@@ -4,9 +4,9 @@ import depthai as dai
 from fastapi import FastAPI, WebSocket
 import uvicorn
 
-from backend.constants import REQUEST_OUTPUT_HEIGHT, REQUEST_OUTPUT_WIDTH
-from backend.utils.kalman import update_kalman, prune_kalman
-from backend.utils.positioning import compute_position
+from constants import REQUEST_OUTPUT_HEIGHT, REQUEST_OUTPUT_WIDTH
+from utils.kalman import update_kalman, prune_kalman
+from utils.positioning import compute_position
 from faker import build_payload, init_cars, update_cars
 app = FastAPI()
 
