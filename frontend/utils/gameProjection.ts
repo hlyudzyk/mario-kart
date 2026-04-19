@@ -10,7 +10,7 @@ export const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 export const lerp = (start: number, end: number, progress: number) =>
   start + (end - start) * progress;
 
-export const getWorldProgress = (worldY: number) => clamp01(1 - worldY);
+export const getWorldProgress = (worldY: number) => Math.max(0, 1 - worldY);
 
 export const getScreenYForWorldY = (
   worldY: number,
@@ -31,7 +31,7 @@ export const getRoadWidthAtScreenY = (
   screenY: number,
   config: PerspectiveRoadConfig,
 ) => {
-  const progress = clamp01(
+  const progress = Math.max(0,
     config.viewportHeight <= 0 ? 1 : screenY / config.viewportHeight,
   );
   const easedProgress = Math.pow(progress, 1.28);

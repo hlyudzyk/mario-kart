@@ -58,7 +58,7 @@ const TREE_ASSET = require('../assets/tree.png');
 const COIN_ASSET = require('../assets/coin.png');
 const MARIO_ASSET = require('../assets/mario_kart_models_back/mario-back.png');
 const COIN_SPEED_PER_MS = 0.0006;
-const COIN_SPAWN_INTERVAL_MS = 1500;
+const COIN_SPAWN_INTERVAL_MS = 4000;
 const COIN_COMMIT_INTERVAL_MS = 33;
 const WORLD_TOP_INSET = 132;
 
@@ -138,7 +138,7 @@ export const GamePage = ({ navigation }: GamePageProps) => {
     return {
       top,
       size,
-      left: clampSpriteLeft(centerX - size / 2 + lateralOffset, anchorY, size),
+      left: centerX - size / 2 + lateralOffset,
       zIndex: 20 + Math.round(scale * 30),
     };
   };
@@ -183,7 +183,9 @@ export const GamePage = ({ navigation }: GamePageProps) => {
           continue;
         }
 
-        if (nextY > -0.05 && nextY < 0.15 && Math.abs(coin.x - MARIO_ROAD_X) < 0.2) {
+        // Mario is always at MARIO_ROAD_X (RIGHT_LANE_X) and y ~ 0.
+        // We consume coins that hit mario: y < 0.08 touches the kart border!
+        if (nextY > -0.12 && nextY < 0.08 && Math.abs(coin.x - MARIO_ROAD_X) < 0.2) {
           scoreAdded += 1;
           continue;
         }
@@ -345,6 +347,11 @@ export const GamePage = ({ navigation }: GamePageProps) => {
           const roadX = Math.max(0.08, Math.min(0.92, car.x));
 
           if (car.label === 'person') {
+            // Hide camera "coins" if they hit the boundary of the character
+            if (car.y < 0.08 && car.y > -0.12 && Math.abs(roadX - MARIO_ROAD_X) < 0.2) {
+              return null;
+            }
+
             const placement = getProjectedSprite(
               roadX,
               car.y,
