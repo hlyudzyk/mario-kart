@@ -89,6 +89,7 @@ type GamePageProps = {
 export const GamePage = ({ navigation }: GamePageProps) => {
   const { width, height } = useWindowDimensions();
   const socketRef = useRef<WebSocket | null>(null);
+  const collectedRef = useRef<Set<string>>(new Set());
   const [cars, setCars] = useState<RemoteCar[]>([]);
   const [score, setScore] = useState(0);
 
@@ -159,23 +160,52 @@ export const GamePage = ({ navigation }: GamePageProps) => {
           return;
         }
 
-        setCars(
-          nextCars
-            .filter(
-              (car): car is RemoteCar =>
-                car &&
-                typeof car.x === 'number' &&
-                typeof car.y === 'number' &&
-                typeof car.label === 'string' &&
-                (typeof car.id === 'string' || typeof car.id === 'number'),
-            )
-            .map(car => ({
-              x: Math.max(0, Math.min(1, car.x)),
-              y: Math.max(0, Math.min(1, car.y)),
-              label: car.label,
-              id: String(car.id),
-            })),
-        );
+        const parsed: RemoteCar[] = nextCars
+          .filter(
+            (car): car is RemoteCar =>
+              car &&
+              typeof car.x === 'number' &&
+              typeof car.y === 'number' &&
+              typeof car.label === 'string' &&
+              (typeof car.id === 'string' || typeof car.id === 'number'),
+          )
+          .map(car => ({
+            x: Math.max(0, Math.min(1, car.x)),
+            y: Math.max(0, Math.min(1, car.y)),
+            label: car.label,
+            id: String(car.id),
+          }));
+
+        // Clean up collected IDs for objects no longer tracked
+        const activeIds = new Set(parsed.map(c => c.id));
+        for (const id of collectedRef.current) {
+          if (!activeIds.has(id)) {
+            collectedRef.current.delete(id);
+          }
+        }
+
+        // Count coins entering Mario's collection zone for the first time
+        let newCollections = 0;
+        for (const car of parsed) {
+          if (car.label === 'person') {
+            const roadX = Math.max(0.08, Math.min(0.92, car.x));
+            if (
+              car.y < 0.08 &&
+              car.y > -0.12 &&
+              Math.abs(roadX - MARIO_ROAD_X) < 0.2 &&
+              !collectedRef.current.has(car.id)
+            ) {
+              collectedRef.current.add(car.id);
+              newCollections++;
+            }
+          }
+        }
+
+        if (newCollections > 0) {
+          setScore(prev => prev + newCollections);
+        }
+
+        setCars(parsed);
       } catch (error) {
         console.warn('Failed to parse websocket payload', error);
       }

@@ -1,9 +1,9 @@
 import math
 
-from backend.constants import Y_MIN, Y_MAX
+from constants import Y_MIN, Y_MAX
 
 
-def compute_position(det: dict) -> dict | None:
+def compute_position(det: dict) -> dict:
     cx = (det["xmin"] + det["xmax"]) / 2
     width = det["xmax"] - det["xmin"]
     height = det["ymax"] - det["ymin"]
