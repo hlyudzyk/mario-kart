@@ -26,12 +26,6 @@ type RemoteCar = {
   id: string;
 };
 
-type Coin = {
-  id: number;
-  x: number;
-  y: number;
-};
-
 type Particle = {
   id: number;
   left: number;
@@ -76,8 +70,6 @@ const COIN_ASSET = require('../assets/coin.png');
 const MARIO_ASSET = require('../assets/mario_kart_models_back/mario-back.png');
 const MARIO_THEME_ASSET = require('../assets/sounds/mariokart-theme.mp3');
 const COIN_SOUND_ASSET = require('../assets/sounds/coin.mp3');
-const COIN_SPEED_PER_MS = 0.0006;
-const COIN_SPAWN_INTERVAL_MS = 4000;
 const COIN_COMMIT_INTERVAL_MS = 33;
 const WORLD_TOP_INSET = 132;
 const PARTICLE_MIN_COUNT = 4;
@@ -125,9 +117,12 @@ type GamePageProps = {
 export const GamePage = ({ navigation }: GamePageProps) => {
   const { width, height } = useWindowDimensions();
   const socketRef = useRef<WebSocket | null>(null);
+  const themeSoundRef = useRef<Sound | null>(null);
+  const coinSoundRef = useRef<Sound | null>(null);
+  const lastCoinFrameTimeRef = useRef<number | null>(null);
+  const visibleParticlesRef = useRef<Particle[]>([]);
   const collectedRef = useRef<Set<string>>(new Set());
   const [cars, setCars] = useState<RemoteCar[]>([]);
-  const [coins, setCoins] = useState<Coin[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [marioPose, setMarioPose] = useState<MarioPose>({
     translateX: 0,
@@ -135,7 +130,6 @@ export const GamePage = ({ navigation }: GamePageProps) => {
     rotateDeg: 0,
   });
   const [score, setScore] = useState(0);
-  const coinIdCounter = useRef(0);
   const particleIdCounter = useRef(0);
 
   const bottomRoadWidth = width * ROAD_BOTTOM_WIDTH_RATIO;
@@ -278,7 +272,6 @@ export const GamePage = ({ navigation }: GamePageProps) => {
 
   useEffect(() => {
     let frame = 0;
-    let lastCoinSpawn: number | null = null;
     let lastParticleSpawn: number | null = null;
     let lastCommit: number | null = null;
 
@@ -286,26 +279,6 @@ export const GamePage = ({ navigation }: GamePageProps) => {
       const previousTime = lastCoinFrameTimeRef.current ?? time;
       const delta = time - previousTime;
       lastCoinFrameTimeRef.current = time;
-
-      if (lastCoinSpawn === null) {
-        lastCoinSpawn = time;
-      }
-
-      const previousCoins = visibleCoinsRef.current;
-      let nextCoins = previousCoins;
-
-      if (time - lastCoinSpawn >= COIN_SPAWN_INTERVAL_MS) {
-        lastCoinSpawn = time;
-        const spawnX = Math.random() > 0.5 ? LEFT_LANE_X : RIGHT_LANE_X;
-        nextCoins = [
-          ...nextCoins,
-          {
-            id: coinIdCounter.current++,
-            x: spawnX,
-            y: 1,
-          },
-        ];
-      }
 
       let previousParticles = visibleParticlesRef.current;
 
@@ -340,27 +313,8 @@ export const GamePage = ({ navigation }: GamePageProps) => {
         ];
       }
 
-      let scoreAdded = 0;
       const nextMarioPose = getMarioPose(time);
-      const deltaY = delta * COIN_SPEED_PER_MS;
-      const movedCoins: Coin[] = [];
       const movedParticles: Particle[] = [];
-
-      for (const coin of nextCoins) {
-        const nextY = coin.y - deltaY;
-        if (nextY < -0.12) {
-          continue;
-        }
-
-        if (nextY > -0.05 && nextY < 0.15 && Math.abs(coin.x - MARIO_ROAD_X) < 0.2) {
-          scoreAdded += 1;
-          continue;
-        }
-
-        movedCoins.push({ ...coin, y: nextY });
-      }
-
-      visibleCoinsRef.current = movedCoins;
 
       for (const particle of previousParticles) {
         const nextOpacity = particle.opacity - delta * PARTICLE_FADE_PER_MS;
@@ -388,28 +342,12 @@ export const GamePage = ({ navigation }: GamePageProps) => {
 
       visibleParticlesRef.current = movedParticles;
 
-      if (scoreAdded > 0) {
-        setScore(currentScore => currentScore + scoreAdded);
-        const currentCoinSound = coinSoundRef.current;
-        currentCoinSound?.stop(() => {
-          currentCoinSound.setCurrentTime(0);
-          currentCoinSound.play(success => {
-            if (!success) {
-              console.warn('Coin sound playback ended unexpectedly');
-            }
-          });
-        });
-      }
-
       if (
         (lastCommit === null || time - lastCommit >= COIN_COMMIT_INTERVAL_MS) &&
-        (movedCoins.length > 0 ||
-          previousCoins.length > 0 ||
-          movedParticles.length > 0 ||
+        (movedParticles.length > 0 ||
           previousParticles.length > 0)
       ) {
         lastCommit = time;
-        setCoins(movedCoins);
         setParticles(movedParticles);
         setMarioPose(nextMarioPose);
       }
@@ -485,6 +423,15 @@ export const GamePage = ({ navigation }: GamePageProps) => {
 
         if (newCollections > 0) {
           setScore(prev => prev + newCollections);
+          const currentCoinSound = coinSoundRef.current;
+          currentCoinSound?.stop(() => {
+            currentCoinSound.setCurrentTime(0);
+            currentCoinSound.play(success => {
+              if (!success) {
+                console.warn('Coin sound playback ended unexpectedly');
+              }
+            });
+          });
         }
 
         setCars(parsed);
